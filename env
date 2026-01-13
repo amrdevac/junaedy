@@ -1,0 +1,23 @@
+## PocketBase
+NEXT_PUBLIC_POCKETBASE_BASE_URL=http://127.0.0.1:8090/
+DIARY_MASTER_PIN=123
+DIARY_DECOY_PIN=444
+
+## ImageKit.io
+# Server-side only
+IMAGEKIT_PRIVATE_KEY=private_aPHemAY/JZLrQsaim35rRVlt5D8=
+# Can be exposed to client if needed
+NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY=public_S9lamHXAiU3yXY6g1WunuiqmMtU=
+
+## NextAuth
+NEXTAUTH_SECRET=change-me-to-a-long-random-string
+NEXTAUTH_URL=http://localhost:3321
+
+## Turso / libsql
+# Remote Turso/libsql connection
+TURSO_DATABASE_URL=libsql://diary-amrdv.aws-ap-northeast-1.turso.io
+ TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Njc2MDQ0MjcsImlkIjoiYjA4OWYwNjMtOTIyNy00YTM0LWE2MDQtMGZiMTZhNDhjYmE0IiwicmlkIjoiMTM0ZDQxZTAtNzRjMS00NzI1LWIwY2UtNTkyMzUzMmRhNzRiIn0.URpRm_4bEgMlHDWtGgJDE0x4-1yum5nysgyKu5W-Nj6V9zW_y19t2PuWrr0g6JuXIi1VqIIMLKbPevAtBdGTBw
+
+# TURSO_DATABASE_URL=libsql://database-blue-xylophone-vercel-icfg-vsvwcz4hoyzsdtnyfsav7zgu.aws-us-east-1.turso.io
+# TURSO_DATABASE_URL=http://127.0.0.1:8082/
+#  TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTUyNDkwOTcsImlkIjoiYmI4NzA3MWQtMGFlMC00MzVhLWJmNmMtMzYwOTJmYTY5YTU1IiwicmlkIjoiOWNiNmVlODQtMDFkNi00ZDVlLWE1NzUtZmIxZDk3ZDg5NzM4In0.1POI0a0T2Hlaxd2bdZKpVSFD_5bIhSriuPdPXt5hajsR0ZCOJrXRhdRhqQhM_ZLV6cgZuORSUwchsaWbBA-KAw

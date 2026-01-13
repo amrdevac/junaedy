@@ -11,12 +11,6 @@ export interface DiaryEntryRecord {
   updated_at: string;
 }
 
-export interface MentionReference {
-  id: number;
-  preview: string;
-  createdAt: string;
-}
-
 export interface DiaryEntry {
   id: number;
   content: string;

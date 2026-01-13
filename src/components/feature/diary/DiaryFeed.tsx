@@ -24,6 +24,7 @@ interface DiaryFeedProps {
   onMentionEntry: (entry: DiaryEntry) => void;
   hasMore: boolean;
   onLoadMore: () => void;
+  onJumpToMention?: (mention: MentionReference) => void;
 }
 
 export default function DiaryFeed({
@@ -41,6 +42,7 @@ export default function DiaryFeed({
   onMentionEntry,
   hasMore,
   onLoadMore,
+  onJumpToMention,
 }: DiaryFeedProps) {
   const { blurSettings } = useDiarySession();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -205,10 +207,11 @@ export default function DiaryFeed({
   const handleJumpToMention = useCallback(
     (mention: MentionReference) => {
       onSearchChange(mention.preview);
+      onJumpToMention?.(mention);
       setTimelineFocused(false);
       requestAnimationFrame(() => searchRef.current?.focus());
     },
-    [onSearchChange]
+    [onSearchChange, onJumpToMention]
   );
 
   useEffect(() => {
@@ -434,7 +437,7 @@ function DiaryCard({
         <div className="flex items-center gap-2">
           <Button
             type="button"
-            variant="diaryChip"
+            variant="default"
             size="sm"
             onClick={(event) => {
               event.stopPropagation();

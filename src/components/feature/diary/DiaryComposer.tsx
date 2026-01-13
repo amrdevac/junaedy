@@ -211,7 +211,7 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
           <Button
             type="submit"
             disabled={!canPost}
-            variant="diaryPrimary"
+            variant="default"
             className="ml-auto rounded-full px-6"
           >
             {submitting ? "Menyimpan..." : "Posting"}

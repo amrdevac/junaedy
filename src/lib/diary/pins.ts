@@ -130,7 +130,7 @@ export async function savePinSettings(params: {
     });
   } else {
     const sets: string[] = [];
-    const args: (string | null)[] = [];
+    const args: (string | number |null)[] = [];
     if (hashedMaster) {
       sets.push("master_pin_hash = ?");
       args.push(hashedMaster);
