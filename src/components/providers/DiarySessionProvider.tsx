@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DiaryMode } from "@/types/diary";
+import { configApp } from "@/lib/config/config";
 import { Input } from "@/ui/input";
 import { Button } from "@/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,9 +37,11 @@ const DEFAULT_BLUR: BlurSettings = {
 const BLUR_STORAGE_KEY = "diary_blur_settings";
 const TEXT_SCALE_STORAGE_KEY = "diary_text_scale";
 const DEFAULT_TEXT_SCALE = 1;
-const MIN_TEXT_SCALE = 0.1;
+const MIN_TEXT_SCALE = 0.6;
 const MAX_TEXT_SCALE = 1.25;
 const TEXT_SCALE_STEP = 0.1;
+const IDLE_TIMEOUT_MINUTES = configApp.diary.idle_timeout_minutes ?? 1;
+const IDLE_TIMEOUT_MS = IDLE_TIMEOUT_MINUTES > 0 ? IDLE_TIMEOUT_MINUTES * 60 * 1000 : null;
 
 const clampTextScale = (value: number) => {
   return Math.min(MAX_TEXT_SCALE, Math.max(MIN_TEXT_SCALE, Number(value.toFixed(2))));
@@ -206,6 +209,44 @@ export default function DiarySessionProvider({ children }: { children: React.Rea
     window.addEventListener("keydown", handleScaleShortcut);
     return () => window.removeEventListener("keydown", handleScaleShortcut);
   }, [adjustTextScale]);
+
+  useEffect(() => {
+    if (!IDLE_TIMEOUT_MS) return;
+    let timer: number | null = null;
+    const resetTimer = () => {
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+      if (status !== "ready") return;
+      timer = window.setTimeout(() => {
+        lock();
+      }, IDLE_TIMEOUT_MS);
+    };
+    const handleActivity = () => {
+      if (status !== "ready") return;
+      resetTimer();
+    };
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (status === "ready") {
+          lock();
+        }
+        return;
+      }
+      handleActivity();
+    };
+    const events: Array<keyof WindowEventMap> = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
+    events.forEach((event) => window.addEventListener(event, handleActivity, true));
+    document.addEventListener("visibilitychange", handleVisibility);
+    resetTimer();
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, handleActivity, true));
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [status, lock]);
 
   const value = useMemo<DiarySessionValue>(
     () => ({

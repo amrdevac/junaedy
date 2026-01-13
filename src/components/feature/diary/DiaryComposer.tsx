@@ -39,6 +39,7 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
     }
     return "Curhat aja di sini. Semua kabur kalau blur aktif.";
   }, [mode]);
+  const shouldBlurContent = blurSettings.composeBlur && !(showPlain || holdReveal);
 
   const submitDiary = useCallback(async () => {
     if (!canPost) return;
@@ -168,7 +169,12 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
         {mentions.length > 0 && (
-          <div className="diary-mention-block rounded-2xl border p-4 space-y-2">
+          <div
+            className={cn(
+              "diary-mention-block rounded-2xl border p-4 space-y-2 transition-all",
+              shouldBlurContent && "filter blur-[4px] hover:blur-none"
+            )}
+          >
             <p className="diary-label">Menanggapi</p>
             {mentions.map((mention) => (
               <div key={`mention-preview-${mention.id}`} className="diary-mention-preview rounded-xl border p-3">
@@ -182,7 +188,7 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
                     Hapus
                   </button>
                 </div>
-                <p className="diary-mention-text text-sm">{mention.preview}</p>
+                <p className="diary-mention-text">{mention.preview}</p>
               </div>
             ))}
           </div>
@@ -195,10 +201,8 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
             data-id="diary-composer-textarea"
             placeholder={placeholder}
             className={cn(
-              "min-h-[150px] resize-none rounded-2xl diary-textarea leading-relaxed shadow-inner  border focus-within:ring-0 ",
-              blurSettings.composeBlur && !(showPlain || holdReveal)
-                ? "filter blur-[4px] group-hover:blur-none transition-all"
-                : ""
+              "min-h-[150px] resize-none rounded-2xl diary-textarea leading-relaxed shadow-inner border focus-within:ring-0",
+              shouldBlurContent ? "filter blur-[4px] group-hover:blur-none transition-all" : ""
             )}
             disabled={submitting}
             onBlur={() => setHoldReveal(false)}
