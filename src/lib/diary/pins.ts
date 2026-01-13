@@ -73,14 +73,20 @@ export async function getPinStatus(): Promise<DiaryPinStatus> {
 
 export async function matchDiaryPin(pin: string): Promise<DiaryMode | null> {
   if (!pin) return null;
-  const envPins = getEnvPins();
-  if (envPins.masterPin && pin === envPins.masterPin) {
-    return "real";
-  }
-  if (envPins.decoyPin && pin === envPins.decoyPin) {
-    return "decoy";
-  }
   const row = await readPinRow();
+  const hasStoredPins = Boolean(row?.master_pin_hash || row?.decoy_pin_hash);
+
+  if (!hasStoredPins) {
+    const envPins = getEnvPins();
+    if (envPins.masterPin && pin === envPins.masterPin) {
+      return "real";
+    }
+    if (envPins.decoyPin && pin === envPins.decoyPin) {
+      return "decoy";
+    }
+    return null;
+  }
+
   if (row?.master_pin_hash) {
     const ok = await bcrypt.compare(pin, row.master_pin_hash);
     if (ok) return "real";
