@@ -50,7 +50,8 @@ function normalizeEnvPin(value?: string | null): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed.length) return null;
-  return isPinFormatValid(trimmed) ? trimmed : null;
+  // Env PINs act as a recovery fallback, so accept any non-empty value
+  return trimmed;
 }
 
 function getEnvPins() {
