@@ -17,45 +17,45 @@ export default function DiaryDashboard() {
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [mentionDrafts, setMentionDrafts] = useState<MentionReference[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { entries, loading, error, refresh, loadMore, hasMore, loadingMore } = useDiaryEntries(search);
-  const { open, entryIds, message, pending, closeConfirm, setPending } = useDeleteConfirmStore();
-  const { toast } = useToast();
+  const diaryEntries = useDiaryEntries(search);
+  const deleteConfirmStore = useDeleteConfirmStore();
+  const toastApi = useToast();
 
   useEffect(() => {
-    if (!entries.length) {
+    if (!diaryEntries.entries.length) {
       setActiveEntryId(null);
       setSelectionAnchorId(null);
       setSelectedEntryIds([]);
       return;
     }
-    if (activeEntryId !== null && !entries.some((entry) => entry.id === activeEntryId)) {
-      const nextId = entries[0]?.id ?? null;
+    if (activeEntryId !== null && !diaryEntries.entries.some((entry) => entry.id === activeEntryId)) {
+      const nextId = diaryEntries.entries[0]?.id ?? null;
       setActiveEntryId(nextId);
       setSelectionAnchorId(nextId);
       setSelectedEntryIds(nextId ? [nextId] : []);
       return;
     }
     setSelectedEntryIds((prev) => {
-      const filtered = prev.filter((id) => entries.some((entry) => entry.id === id));
+      const filtered = prev.filter((id) => diaryEntries.entries.some((entry) => entry.id === id));
       if (!filtered.length && activeEntryId !== null) {
         return [activeEntryId];
       }
       return filtered;
     });
-    if (selectionAnchorId !== null && !entries.some((entry) => entry.id === selectionAnchorId)) {
+    if (selectionAnchorId !== null && !diaryEntries.entries.some((entry) => entry.id === selectionAnchorId)) {
       setSelectionAnchorId(activeEntryId);
     }
-  }, [entries, activeEntryId, selectionAnchorId]);
+  }, [diaryEntries.entries, activeEntryId, selectionAnchorId]);
 
   const getRangeIds = useCallback(
     (fromId: number, toId: number) => {
-      const startIndex = entries.findIndex((entry) => entry.id === fromId);
-      const endIndex = entries.findIndex((entry) => entry.id === toId);
+      const startIndex = diaryEntries.entries.findIndex((entry) => entry.id === fromId);
+      const endIndex = diaryEntries.entries.findIndex((entry) => entry.id === toId);
       if (startIndex === -1 || endIndex === -1) return [toId];
       const [start, end] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-      return entries.slice(start, end + 1).map((entry) => entry.id);
+      return diaryEntries.entries.slice(start, end + 1).map((entry) => entry.id);
     },
-    [entries]
+    [diaryEntries.entries]
   );
 
   const handleSelectEntry = useCallback(
@@ -125,8 +125,8 @@ export default function DiaryDashboard() {
             }
           })
         );
-        await refresh();
-        toast({
+        await diaryEntries.refresh();
+        toastApi.toast({
           title: ids.length > 1 ? "Catatan terhapus" : "Catatan terhapus",
           description:
             ids.length > 1 ? `${ids.length} catatan berhasil dihapus.` : "Entri berhasil dihapus dari timeline.",
@@ -134,7 +134,7 @@ export default function DiaryDashboard() {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Gagal menghapus catatan.";
         setDeleteError(message);
-        toast({
+        toastApi.toast({
           title: "Gagal menghapus",
           description: message,
           variant: "destructive",
@@ -142,21 +142,26 @@ export default function DiaryDashboard() {
         throw err;
       }
     },
-    [refresh, toast]
+    [diaryEntries.refresh, toastApi]
   );
 
   const confirmDelete = useCallback(async () => {
-    if (!entryIds.length) return;
-    setPending(true);
+    if (!deleteConfirmStore.entryIds.length) return;
+    deleteConfirmStore.setPending(true);
     try {
-      await handleDeleteEntries(entryIds);
-      closeConfirm();
+      await handleDeleteEntries(deleteConfirmStore.entryIds);
+      deleteConfirmStore.closeConfirm();
     } catch {
       // error surfaced via deleteError state
     } finally {
-      setPending(false);
+      deleteConfirmStore.setPending(false);
     }
-  }, [entryIds, handleDeleteEntries, closeConfirm, setPending]);
+  }, [
+    deleteConfirmStore.entryIds,
+    handleDeleteEntries,
+    deleteConfirmStore.closeConfirm,
+    deleteConfirmStore.setPending,
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-white">
@@ -164,19 +169,19 @@ export default function DiaryDashboard() {
         <div className="flex-1 space-y-6">
           <Hero />
           <DiaryComposer
-            onPosted={() => {
-              refresh();
+            onPosted={(entry) => {
+              diaryEntries.appendEntry(entry);
               clearMentions();
             }}
             mentions={mentionDrafts}
             onRemoveMention={handleRemoveMention}
           />
           <DiaryFeed
-            entries={entries}
-            loading={loading}
-            loadingMore={loadingMore}
-            error={error}
-            onRetry={refresh}
+            entries={diaryEntries.entries}
+            loading={diaryEntries.loading}
+            loadingMore={diaryEntries.loadingMore}
+            error={diaryEntries.error}
+            onRetry={diaryEntries.refresh}
             searchValue={search}
             onSearchChange={setSearch}
             activeEntryId={activeEntryId}
@@ -184,8 +189,8 @@ export default function DiaryDashboard() {
             onSelectEntry={handleSelectEntry}
             deleteError={deleteError}
             onMentionEntry={handleAddMention}
-            hasMore={hasMore}
-            onLoadMore={loadMore}
+            hasMore={diaryEntries.hasMore}
+            onLoadMore={diaryEntries.loadMore}
             onJumpToMention={setSearch}
           />
         </div>
@@ -194,13 +199,13 @@ export default function DiaryDashboard() {
         </div>
       </div>
       <ConfirmModal
-        isOpen={open}
+        isOpen={deleteConfirmStore.open}
         onCancel={() => {
-          if (!pending) closeConfirm();
+          if (!deleteConfirmStore.pending) deleteConfirmStore.closeConfirm();
         }}
         onConfirm={confirmDelete}
         title="Hapus catatan ini?"
-        message={message}
+        message={deleteConfirmStore.message}
         confirmText="Konfirmasi hapus"
         cancelText="Batal"
         autoFocusConfirm

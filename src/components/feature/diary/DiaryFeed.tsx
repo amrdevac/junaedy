@@ -44,7 +44,7 @@ export default function DiaryFeed({
   onLoadMore,
   onJumpToMention,
 }: DiaryFeedProps) {
-  const { blurSettings } = useDiarySession();
+  const diarySession = useDiarySession();
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -206,9 +206,9 @@ export default function DiaryFeed({
 
   const handleJumpToMention = useCallback(
     (mention: MentionReference) => {
-      const { preview } = mention;
-      onSearchChange(preview);
-      onJumpToMention?.(preview);
+      const mentionPreview = mention.preview;
+      onSearchChange(mentionPreview);
+      onJumpToMention?.(mentionPreview);
       setTimelineFocused(false);
       requestAnimationFrame(() => searchRef.current?.focus());
     },
@@ -358,7 +358,7 @@ export default function DiaryFeed({
             <DiaryCard
               key={entry.content.replaceAll(" ","") + index + "_baru"}
               entry={entry}
-              blurEnabled={blurSettings.feedBlurEnabled}
+              blurEnabled={diarySession.blurSettings.feedBlurEnabled}
               selected={selectedEntryIds.includes(entry.id)}
               active={timelineFocused && entry.id === activeEntryId}
               showBlur={!revealSetRef.current.has(entry.id)}

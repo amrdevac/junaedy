@@ -57,7 +57,7 @@ const SHORTCUTS = [
 ] as const;
 
 export default function DiaryControlPanel() {
-  const { blurSettings, updateBlurSettings } = useDiarySession();
+  const diarySession = useDiarySession();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [shortcutQuery, setShortcutQuery] = useState("");
   const filteredShortcuts = useMemo(() => {
@@ -87,17 +87,17 @@ export default function DiaryControlPanel() {
       const key = event.key.toLowerCase();
       if (key === "c") {
         event.preventDefault();
-        updateBlurSettings((prev) => ({ ...prev, composeBlur: !prev.composeBlur }));
+        diarySession.updateBlurSettings((prev) => ({ ...prev, composeBlur: !prev.composeBlur }));
         return;
       }
       if (key === "t") {
         event.preventDefault();
-        updateBlurSettings((prev) => ({ ...prev, feedBlurEnabled: !prev.feedBlurEnabled }));
+        diarySession.updateBlurSettings((prev) => ({ ...prev, feedBlurEnabled: !prev.feedBlurEnabled }));
       }
     };
     window.addEventListener("keydown", handleBlurToggle);
     return () => window.removeEventListener("keydown", handleBlurToggle);
-  }, [updateBlurSettings]);
+  }, [diarySession.updateBlurSettings]);
 
   return (
     <aside className="space-y-6">
@@ -157,9 +157,9 @@ export default function DiaryControlPanel() {
         <ToggleRow
           label="Blur saat mengetik"
           description="Sembunyikan teks input sampai kamu mau lihat."
-          active={blurSettings.composeBlur}
+          active={diarySession.blurSettings.composeBlur}
           onToggle={() =>
-            updateBlurSettings((prev) => ({
+            diarySession.updateBlurSettings((prev) => ({
               ...prev,
               composeBlur: !prev.composeBlur,
             }))
@@ -168,9 +168,9 @@ export default function DiaryControlPanel() {
         <ToggleRow
           label="Blur timeline"
           description="Semua posting ditutup blur secara default."
-          active={blurSettings.feedBlurEnabled}
+          active={diarySession.blurSettings.feedBlurEnabled}
           onToggle={() =>
-            updateBlurSettings((prev) => ({
+            diarySession.updateBlurSettings((prev) => ({
               ...prev,
               feedBlurEnabled: !prev.feedBlurEnabled,
             }))

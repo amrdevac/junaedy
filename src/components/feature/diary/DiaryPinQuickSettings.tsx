@@ -35,7 +35,7 @@ export default function DiaryPinQuickSettings() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
+  const toastApi = useToast();
 
   const fetchStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -110,7 +110,7 @@ export default function DiaryPinQuickSettings() {
       }
       setStatus(data.status as DiaryPinStatus);
       setForm(INITIAL_FORM);
-      toast({
+      toastApi.toast({
         title: "PIN diperbarui",
         description: "Konfigurasi PIN berhasil diperbarui.",
       });
@@ -118,7 +118,7 @@ export default function DiaryPinQuickSettings() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal menyimpan PIN.";
       setFormError(message);
-      toast({
+      toastApi.toast({
         title: "Gagal menyimpan",
         description: message,
         variant: "destructive",

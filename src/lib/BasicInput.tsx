@@ -52,8 +52,8 @@ const BasicInput: React.FC<BasicInputProps> = ({
 
   const [imgKey, setImgKey] = useState(0);
 
-  const { errors } = useValidationStore();
-  const fieldErrors = errors[name];
+  const validationStore = useValidationStore();
+  const fieldErrors = validationStore.errors[name];
 
   // Quill core
   const editorHolderRef = React.useRef<HTMLDivElement | null>(null);

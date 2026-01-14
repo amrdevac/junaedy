@@ -21,7 +21,7 @@ const Header = ({ companyInfo }: LandingPageType) => {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const storeCmpnyInfo = storeCompanyData();
-  const { meta } = useSiteMeta();
+  const siteMeta = useSiteMeta();
 
   useEffect(() => {
     storeCmpnyInfo.setCompanyInfo(companyInfo);
@@ -41,9 +41,9 @@ const Header = ({ companyInfo }: LandingPageType) => {
         <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center space-x-2">
-              {meta?.logo ? (
+              {siteMeta.meta?.logo ? (
                 <Image
-                  src={meta.logo}
+                  src={siteMeta.meta.logo}
                   alt="Logo"
                   width={40}
                   height={40}

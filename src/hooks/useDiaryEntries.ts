@@ -8,7 +8,7 @@ import { useDiarySession } from "@/components/providers/DiarySessionProvider";
 const PAGE_SIZE = 10;
 
 export function useDiaryEntries(searchQuery = "") {
-  const { status, mode } = useDiarySession();
+  const diarySession = useDiarySession();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -16,11 +16,11 @@ export function useDiaryEntries(searchQuery = "") {
   const [hasMore, setHasMore] = useState(true);
   const cursorRef = useRef<number | null>(null);
 
-  const normalizedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
+  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
   const fetchEntries = useCallback(
     async ({ reset }: { reset?: boolean } = {}) => {
-      if (status !== "ready" || !mode) {
+      if (diarySession.status !== "ready" || !diarySession.mode) {
         setEntries([]);
         setHasMore(false);
         cursorRef.current = null;
@@ -66,7 +66,7 @@ export function useDiaryEntries(searchQuery = "") {
         setLoadingMore(false);
       }
     },
-    [status, mode, normalizedSearch]
+    [diarySession.status, diarySession.mode, normalizedSearch]
   );
 
   useEffect(() => {
@@ -78,6 +78,21 @@ export function useDiaryEntries(searchQuery = "") {
     };
   }, [fetchEntries, normalizedSearch]);
 
+  const appendEntry = useCallback(
+    (entry: DiaryEntry) => {
+      setEntries((prev) => {
+        if (normalizedSearch && !entry.content.toLowerCase().includes(normalizedSearch)) {
+          return prev;
+        }
+        if (prev.some((existing) => existing.id === entry.id)) {
+          return prev;
+        }
+        return [entry, ...prev];
+      });
+    },
+    [normalizedSearch]
+  );
+
   return {
     entries,
     loading,
@@ -86,5 +101,6 @@ export function useDiaryEntries(searchQuery = "") {
     hasMore,
     loadMore: () => fetchEntries({ reset: false }),
     refresh: () => fetchEntries({ reset: true }),
+    appendEntry,
   };
 }

@@ -20,12 +20,12 @@ export interface DiaryEntry {
 }
 
 export function mapDiaryRecord(record: DiaryEntryRecord): DiaryEntry {
-  const { content, mentions } = decodeMentions(record.content);
+  const decoded = decodeMentions(record.content);
   return {
     id: record.id,
-    content,
+    content: decoded.content,
     isDecoy: record.is_decoy === 1,
     createdAt: record.created_at,
-    mentions,
+    mentions: decoded.mentions,
   };
 }

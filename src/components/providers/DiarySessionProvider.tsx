@@ -287,13 +287,13 @@ export function useDiarySession() {
 }
 
 function PinOverlay() {
-  const { status, unlock } = useDiarySession();
+  const diarySession = useDiarySession();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const visible = status !== "ready";
+  const visible = diarySession.status !== "ready";
   useEffect(() => {
     if (!visible) {
       setPin("");
@@ -305,11 +305,11 @@ function PinOverlay() {
       inputRef.current?.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [visible, status]);
+  }, [visible, diarySession.status]);
 
   if (!visible) return null;
 
-  const loading = status === "loading";
+  const loading = diarySession.status === "loading";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -317,7 +317,7 @@ function PinOverlay() {
     setSubmitting(true);
     setError(null);
     try {
-      await unlock(pin);
+      await diarySession.unlock(pin);
       setPin("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pin salah");

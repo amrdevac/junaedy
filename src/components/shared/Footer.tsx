@@ -7,7 +7,7 @@ import useSiteMeta from "@/store/siteMeta";
 
 const Footer: React.FC = () => {
   const storeCmpnyInfo = storeCompanyData();
-  const { meta } = useSiteMeta();
+  const siteMeta = useSiteMeta();
 
   return (
     <footer id="contact" className="bg-slate-900 text-slate-300">
@@ -17,9 +17,9 @@ const Footer: React.FC = () => {
           <div>
             <div className="flex items-center space-x-3 mb-4">
               <div>
-                {meta?.logo ? (
+                {siteMeta.meta?.logo ? (
                   <Image
-                    src={meta.logo}
+                    src={siteMeta.meta.logo}
                     alt="Logo"
                     width={40}
                     height={40}
