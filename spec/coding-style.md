@@ -5,7 +5,7 @@ Dokumen ini jadi referensi buat gaya koding di proyek diary supaya konsisten sam
 ## 1. Standar Umum yang Sudah Ada
 - **TypeScript + Next.js 15** dengan React Server Components default dan beberapa komponen client (`"use client"`).
 - **Relative alias** pakai prefix `@/` buat import dari `src` (contoh `@/components/...`).
-- **State management**: hooks custom (`useDiarySession`, `useDiaryEntries`, dll.) + store Zustand (`useDeleteConfirmStore`, `useSiteMeta`).
+- **State management**: hooks custom + Zustand store (contoh: `useDiaryDashboardStore`, `useDeleteConfirmStore`) dipakai untuk state kompleks supaya komponen tetap bersih.
 - **UI kit**: komponen `ui/*` (Button, Card, Dialog, dsb.) + util `cn` buat compose class.
 - **Async** pakai `fetch` native, gak ada axios (kecuali sisa di legacy admin). Semua API route ada di `src/app/api/*`.
 - **CSS**: Tailwind utility penuh. Theme diatur via class `theme-default`, `theme-classes.css`, dsb.

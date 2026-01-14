@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useDiarySession } from "@/components/providers/DiarySessionProvider";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/ui/dialog";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import DiaryPinQuickSettings from "./DiaryPinQuickSettings";
+import { useDiaryControlPanel } from "@/hooks/diary/useDiaryControlPanel";
 
 const SHORTCUTS = [
   {
@@ -57,47 +56,7 @@ const SHORTCUTS = [
 ] as const;
 
 export default function DiaryControlPanel() {
-  const diarySession = useDiarySession();
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [shortcutQuery, setShortcutQuery] = useState("");
-  const filteredShortcuts = useMemo(() => {
-    const q = shortcutQuery.trim().toLowerCase();
-    if (!q) return SHORTCUTS;
-    return SHORTCUTS.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.combo.toLowerCase().includes(q)
-    );
-  }, [shortcutQuery]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setShortcutsOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-  useEffect(() => {
-    const handleBlurToggle = (event: KeyboardEvent) => {
-      if (!event.ctrlKey || !event.altKey) return;
-      const key = event.key.toLowerCase();
-      if (key === "c") {
-        event.preventDefault();
-        diarySession.updateBlurSettings((prev) => ({ ...prev, composeBlur: !prev.composeBlur }));
-        return;
-      }
-      if (key === "t") {
-        event.preventDefault();
-        diarySession.updateBlurSettings((prev) => ({ ...prev, feedBlurEnabled: !prev.feedBlurEnabled }));
-      }
-    };
-    window.addEventListener("keydown", handleBlurToggle);
-    return () => window.removeEventListener("keydown", handleBlurToggle);
-  }, [diarySession.updateBlurSettings]);
+  const diaryControl = useDiaryControlPanel(SHORTCUTS);
 
   return (
     <aside className="space-y-6">
@@ -112,7 +71,7 @@ export default function DiaryControlPanel() {
               Cepetin akses fitur penting lewat kombinasi tombol.
             </p>
           </div>
-          <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+          <Dialog open={diaryControl.shortcutsOpen} onOpenChange={diaryControl.setShortcutsOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="ml-auto rounded-full">
                 Lihat daftar
@@ -126,14 +85,14 @@ export default function DiaryControlPanel() {
                 </DialogDescription>
               </DialogHeader>
               <Input
-                value={shortcutQuery}
-                onChange={(event) => setShortcutQuery(event.target.value)}
+                value={diaryControl.shortcutQuery}
+                onChange={(event) => diaryControl.handleQueryChange(event.target.value)}
                 placeholder="Cari shortkey..."
                 className="rounded-full border-slate-200 bg-white/80 text-sm"
               />
               <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                {filteredShortcuts.length ? (
-                  filteredShortcuts.map((shortcut) => (
+                {diaryControl.filteredShortcuts.length ? (
+                  diaryControl.filteredShortcuts.map((shortcut) => (
                     <ShortcutRow key={`${shortcut.combo}-${shortcut.title}`} {...shortcut} />
                   ))
                 ) : (
@@ -157,24 +116,14 @@ export default function DiaryControlPanel() {
         <ToggleRow
           label="Blur saat mengetik"
           description="Sembunyikan teks input sampai kamu mau lihat."
-          active={diarySession.blurSettings.composeBlur}
-          onToggle={() =>
-            diarySession.updateBlurSettings((prev) => ({
-              ...prev,
-              composeBlur: !prev.composeBlur,
-            }))
-          }
+          active={diaryControl.diarySession.blurSettings.composeBlur}
+          onToggle={() => diaryControl.toggleComposeBlur()}
         />
         <ToggleRow
           label="Blur timeline"
           description="Semua posting ditutup blur secara default."
-          active={diarySession.blurSettings.feedBlurEnabled}
-          onToggle={() =>
-            diarySession.updateBlurSettings((prev) => ({
-              ...prev,
-              feedBlurEnabled: !prev.feedBlurEnabled,
-            }))
-          }
+          active={diaryControl.diarySession.blurSettings.feedBlurEnabled}
+          onToggle={() => diaryControl.toggleFeedBlur()}
         />
       </section>
     </aside>

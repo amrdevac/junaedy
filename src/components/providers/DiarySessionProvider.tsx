@@ -6,6 +6,7 @@ import { configApp } from "@/lib/config/config";
 import { Input } from "@/ui/input";
 import { Button } from "@/ui/button";
 import { cn } from "@/lib/utils";
+import { createShortcutHandler } from "@/lib/keyboard";
 
 type SessionStatus = "loading" | "locked" | "ready";
 
@@ -162,36 +163,46 @@ export default function DiarySessionProvider({ children }: { children: React.Rea
 
   useEffect(() => {
     const pressed = new Set<string>();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!event.ctrlKey) {
-        pressed.clear();
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (key === "k" || key === "l") {
-        pressed.add(key);
-      } else {
-        pressed.clear();
-        return;
-      }
+    const lockShortcutDown = createShortcutHandler([
+      {
+        combo: "ctrl+k",
+        allowExtraModifiers: true,
+        handler: () => pressed.add("k"),
+      },
+      {
+        combo: "ctrl+l",
+        allowExtraModifiers: true,
+        handler: () => pressed.add("l"),
+      },
+    ]);
+    const lockShortcutUp = createShortcutHandler([
+      {
+        combo: "k",
+        allowExtraModifiers: true,
+        preventDefault: false,
+        handler: () => pressed.delete("k"),
+      },
+      {
+        combo: "l",
+        allowExtraModifiers: true,
+        preventDefault: false,
+        handler: () => pressed.delete("l"),
+      },
+    ]);
+
+    const handleCombined = (event: KeyboardEvent) => {
+      lockShortcutDown(event);
       if (pressed.has("k") && pressed.has("l")) {
         event.preventDefault();
         lock();
       }
     };
 
-    const handleKeyUp = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      if (key === "k" || key === "l") {
-        pressed.delete(key);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keydown", handleCombined);
+    window.addEventListener("keyup", lockShortcutUp);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keydown", handleCombined);
+      window.removeEventListener("keyup", lockShortcutUp);
     };
   }, [lock]);
 

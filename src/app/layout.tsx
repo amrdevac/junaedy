@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./theme.css";
 
@@ -9,15 +8,6 @@ import ProgressBarProviders from "@/components/providers/ProgressBar";
 import DiarySessionProvider from "@/components/providers/DiarySessionProvider";
 import { ToastProvider } from "@/ui/use-toast";
 import QueryProvider from "@/components/providers/QueryProvider";
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: { default: "Private Diary", template: "%s | Private Diary" },
@@ -39,9 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className="theme-default">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <QueryProvider>
           <ToastProvider>
             <ProgressBarProviders>

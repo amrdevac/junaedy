@@ -1,318 +1,105 @@
 "use client";
 
-import { useDiarySession } from "@/components/providers/DiarySessionProvider";
 import { DiaryEntry, MentionReference } from "@/types/diary";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Loader2, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDeleteConfirmStore } from "@/store/deleteConfirmStore";
+import { useDiaryFeed } from "@/hooks/diary/useDiaryFeed";
+import { useDiaryDashboardStore } from "@/store/diaryDashboardStore";
+import { useDiaryEntries } from "@/hooks/diary/useDiaryEntries";
+import { useCallback, useMemo } from "react";
 
-interface DiaryFeedProps {
-  entries: DiaryEntry[];
-  loading: boolean;
-  loadingMore: boolean;
-  error: string | null;
-  onRetry: () => void;
-  searchValue: string;
-  onSearchChange: (next: string) => void;
-  activeEntryId: number | null;
-  selectedEntryIds: number[];
-  onSelectEntry: (id: number | null, options?: { extend?: boolean }) => void;
-  deleteError: string | null;
-  onMentionEntry: (entry: DiaryEntry) => void;
-  hasMore: boolean;
-  onLoadMore: () => void;
-  onJumpToMention?: (query: string) => void;
-}
+export default function DiaryFeed() {
+  const diaryDashboardStore = useDiaryDashboardStore();
+  const diaryEntries = useDiaryEntries(diaryDashboardStore.search);
 
-export default function DiaryFeed({
-  entries,
-  loading,
-  loadingMore,
-  error,
-  onRetry,
-  searchValue,
-  onSearchChange,
-  activeEntryId,
-  selectedEntryIds,
-  onSelectEntry,
-  deleteError,
-  onMentionEntry,
-  hasMore,
-  onLoadMore,
-  onJumpToMention,
-}: DiaryFeedProps) {
-  const diarySession = useDiarySession();
-  const searchRef = useRef<HTMLInputElement>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const feedRef = useRef<HTMLElement>(null);
-  const entryRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const revealSetRef = useRef<Set<number>>(new Set());
-  const [, forceRevealUpdate] = useState(0);
-  const [timelineFocused, setTimelineFocused] = useState(false);
-  const hasSearchedRef = useRef(false);
-  const openConfirm = useDeleteConfirmStore((state) => state.openConfirm);
-  const confirmOpen = useDeleteConfirmStore((state) => state.open);
-
-  const registerEntryRef = useCallback(
-    (id: number) => (node: HTMLDivElement | null) => {
-      if (node) {
-        entryRefs.current.set(id, node);
-      } else {
-        entryRefs.current.delete(id);
-      }
+  const getRangeIds = useCallback(
+    (fromId: number, toId: number) => {
+      const startIndex = diaryEntries.entries.findIndex((entry) => entry.id === fromId);
+      const endIndex = diaryEntries.entries.findIndex((entry) => entry.id === toId);
+      if (startIndex === -1 || endIndex === -1) return [toId];
+      const [start, end] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+      return diaryEntries.entries.slice(start, end + 1).map((entry) => entry.id);
     },
-    []
+    [diaryEntries.entries]
   );
 
   const handleSelectEntry = useCallback(
     (id: number | null, options?: { extend?: boolean }) => {
-      setTimelineFocused(true);
-      onSelectEntry(id, options);
-    },
-    [onSelectEntry]
-  );
-
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key === "/") {
-        event.preventDefault();
-        searchContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        requestAnimationFrame(() => {
-          searchRef.current?.focus();
-          searchRef.current?.select();
-        });
+      if (id === null) {
+        diaryDashboardStore.setActiveEntry(null);
+        diaryDashboardStore.setSelectionAnchor(null);
+        diaryDashboardStore.setSelectedEntryIds([]);
         return;
       }
-      if (event.key === "Escape" && document.activeElement === searchRef.current) {
-        event.preventDefault();
-        searchRef.current?.blur();
-      }
-    };
-    window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
-
-  useEffect(() => {
-    const handleArrowNav = (event: KeyboardEvent) => {
-      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-      if (confirmOpen) return;
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName.toLowerCase();
-        if (tagName === "input" || tagName === "textarea" || target.isContentEditable) {
-          return;
+      if (options?.extend) {
+        const anchor = diaryDashboardStore.selectionAnchorId ?? diaryDashboardStore.activeEntryId ?? id;
+        const range = getRangeIds(anchor, id);
+        diaryDashboardStore.setSelectedEntryIds(range);
+        diaryDashboardStore.setActiveEntry(id);
+        if (!diaryDashboardStore.selectionAnchorId) {
+          diaryDashboardStore.setSelectionAnchor(anchor);
         }
+        return;
       }
-      if (!entries.length) return;
-      event.preventDefault();
-      const currentIndex = activeEntryId ? entries.findIndex((entry) => entry.id === activeEntryId) : -1;
-      if (event.key === "ArrowDown") {
-        const next = entries[Math.min(currentIndex + 1, entries.length - 1)];
-        const targetId = next?.id ?? entries[entries.length - 1].id;
-        handleSelectEntry(targetId, { extend: event.shiftKey });
-      } else {
-        const prevIndex = currentIndex === -1 ? entries.length - 1 : Math.max(currentIndex - 1, 0);
-        const targetId = entries[prevIndex].id;
-        handleSelectEntry(targetId, { extend: event.shiftKey });
-      }
-    };
-    window.addEventListener("keydown", handleArrowNav);
-    return () => window.removeEventListener("keydown", handleArrowNav);
-  }, [confirmOpen, entries, handleSelectEntry, activeEntryId]);
-
-  useEffect(() => {
-    const handleDeleteKey = (event: KeyboardEvent) => {
-      if (event.key !== "Delete") return;
-      if (confirmOpen) return;
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName.toLowerCase();
-        if (tag === "input" || tag === "textarea" || target.isContentEditable) {
-          return;
-        }
-      }
-      if (!selectedEntryIds.length) return;
-      event.preventDefault();
-      openConfirm(
-        selectedEntryIds,
-        selectedEntryIds.length > 1
-          ? `${selectedEntryIds.length} catatan akan hilang permanen dari timeline.`
-          : "Catatan akan hilang permanen dari timeline."
-      );
-    };
-    window.addEventListener("keydown", handleDeleteKey);
-    return () => window.removeEventListener("keydown", handleDeleteKey);
-  }, [confirmOpen, selectedEntryIds, openConfirm]);
-
-  useEffect(() => {
-    const handleEscapeClear = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (!timelineFocused) return;
-      event.preventDefault();
-      onSelectEntry(null);
-      setTimelineFocused(false);
-      if (revealSetRef.current.size) {
-        revealSetRef.current.clear();
-        forceRevealUpdate((prev) => prev + 1);
-      }
-    };
-    window.addEventListener("keydown", handleEscapeClear);
-    return () => window.removeEventListener("keydown", handleEscapeClear);
-  }, [timelineFocused, onSelectEntry]);
-
-  useEffect(() => {
-    if (revealSetRef.current.size) {
-      revealSetRef.current.clear();
-      forceRevealUpdate((prev) => prev + 1);
-    }
-  }, [activeEntryId]);
-
-  useEffect(() => {
-    const handleHoldReveal = (event: KeyboardEvent) => {
-      if (!timelineFocused) return;
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName.toLowerCase();
-        if (tagName === "input" || tagName === "textarea" || target.isContentEditable) {
-          return;
-        }
-      }
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (activeEntryId != null && !revealSetRef.current.has(activeEntryId)) {
-          revealSetRef.current.add(activeEntryId);
-          forceRevealUpdate((prev) => prev + 1);
-        }
-      }
-    };
-    const handleReleaseReveal = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "s" && revealSetRef.current.size) {
-        revealSetRef.current.clear();
-        forceRevealUpdate((prev) => prev + 1);
-      }
-    };
-    window.addEventListener("keydown", handleHoldReveal);
-    window.addEventListener("keyup", handleReleaseReveal);
-    return () => {
-      window.removeEventListener("keydown", handleHoldReveal);
-      window.removeEventListener("keyup", handleReleaseReveal);
-    };
-  }, [activeEntryId, timelineFocused]);
-
-  const handleJumpToMention = useCallback(
-    (mention: MentionReference) => {
-      const mentionPreview = mention.preview;
-      onSearchChange(mentionPreview);
-      onJumpToMention?.(mentionPreview);
-      setTimelineFocused(false);
-      requestAnimationFrame(() => searchRef.current?.focus());
+      diaryDashboardStore.setActiveEntry(id);
+      diaryDashboardStore.setSelectionAnchor(id);
+      diaryDashboardStore.setSelectedEntryIds([id]);
     },
-    [onSearchChange, onJumpToMention]
+    [
+      diaryDashboardStore,
+      getRangeIds,
+    ]
   );
 
-  useEffect(() => {
-    const handleMentionShortcut = (event: KeyboardEvent) => {
-      if (!timelineFocused) return;
-      const entry = entries.find((item) => item.id === activeEntryId);
-      if (!entry) return;
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "m") {
-        event.preventDefault();
-        onMentionEntry(entry);
-        const composeSection = document.querySelector("[data-section='compose']");
-        const textarea = document.querySelector("[data-id='diary-composer-textarea']") as HTMLTextAreaElement | null;
-        if (composeSection) {
-          composeSection.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        requestAnimationFrame(() => textarea?.focus());
-      }
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "g") {
-        if (!entry.mentions?.length) return;
-        event.preventDefault();
-        handleJumpToMention(entry.mentions[0]);
-      }
-    };
-    window.addEventListener("keydown", handleMentionShortcut);
-    return () => window.removeEventListener("keydown", handleMentionShortcut);
-  }, [timelineFocused, entries, activeEntryId, onMentionEntry, handleJumpToMention]);
+  const handleAddMention = useCallback(
+    (entry: DiaryEntry) => {
+      diaryDashboardStore.addMention({
+        id: entry.id,
+        preview: entry.content.slice(0, 200),
+        createdAt: entry.createdAt,
+      });
+    },
+    [diaryDashboardStore]
+  );
 
-  useEffect(() => {
-    const handleFocusChange = (event: FocusEvent) => {
-      if (!feedRef.current) return;
-      const inside = feedRef.current.contains(event.target as Node);
-      setTimelineFocused(inside);
-      if (!inside && revealSetRef.current.size) {
-        revealSetRef.current.clear();
-        forceRevealUpdate((prev) => prev + 1);
-      }
-    };
-    window.addEventListener("focusin", handleFocusChange, true);
-    return () => window.removeEventListener("focusin", handleFocusChange, true);
-  }, []);
-
-
-  useEffect(() => {
-    if (searchValue.trim().length > 0) {
-      hasSearchedRef.current = true;
-    }
-  }, [searchValue]);
-
-  useEffect(() => {
-    if (!hasSearchedRef.current) return;
-    if (loading && timelineRef.current) {
-      timelineRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    if (activeEntryId == null) return;
-    const node = entryRefs.current.get(activeEntryId);
-    if (node) {
-      node.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }, [activeEntryId]);
-
-  const showEmpty = !loading && !error && entries.length === 0;
-
-  useEffect(() => {
-    if (!hasMore) return;
-    const target = loadMoreRef.current;
-    if (!target) return;
-    const observer = new IntersectionObserver(
-      (entriesObs) => {
-        const entry = entriesObs[0];
-        if (entry.isIntersecting && !loading && !loadingMore) {
-          onLoadMore();
-        }
-      },
-      { root: timelineRef.current, threshold: 0.2 }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, onLoadMore]);
+  const diaryFeed = useDiaryFeed({
+    entries: diaryEntries.entries,
+    loading: diaryEntries.loading,
+    loadingMore: diaryEntries.loadingMore,
+    error: diaryEntries.error,
+    onRetry: diaryEntries.refresh,
+    searchValue: diaryDashboardStore.search,
+    onSearchChange: diaryDashboardStore.setSearch,
+    activeEntryId: diaryDashboardStore.activeEntryId,
+    selectedEntryIds: diaryDashboardStore.selectedEntryIds,
+    onSelectEntry: handleSelectEntry,
+    deleteError: diaryDashboardStore.deleteError,
+    onMentionEntry: handleAddMention,
+    hasMore: diaryEntries.hasMore,
+    onLoadMore: diaryEntries.loadMore,
+    onJumpToMention: diaryDashboardStore.setSearch,
+  });
 
   return (
-    <section ref={feedRef} className="diary-surface rounded-3xl border p-6 shadow-sm backdrop-blur">
+    <section ref={diaryFeed.feedRef} className="diary-surface rounded-3xl border p-6 shadow-sm backdrop-blur">
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <p className="diary-label">Timeline</p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2" ref={searchContainerRef}>
+        <div className="ml-auto flex flex-wrap items-center gap-2" ref={diaryFeed.searchContainerRef}>
           <div className="relative">
             <Input
-              ref={searchRef}
-              value={searchValue}
-              onChange={(event) => onSearchChange(event.target.value)}
-              onFocus={() => setTimelineFocused(false)}
+              ref={diaryFeed.searchRef}
+              value={diaryDashboardStore.search}
+              onChange={(event) => diaryDashboardStore.setSearch(event.target.value)}
+              onFocus={() => diaryFeed.setTimelineFocused(false)}
               placeholder="Cari catatan (Ctrl + /)"
               className="diary-search-input  w-48 rounded-xl  focus:border-0 focus:ring-1 pr-10 text-sm sm:w-64"
               aria-label="Cari catatan di timeline"
             />
-            {!loading ? (
+            {!diaryEntries.loading ? (
               <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 diary-search-icon" />
             ) : (
               <Loader2 className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin diary-loader" />
@@ -320,12 +107,12 @@ export default function DiaryFeed({
           </div>
         </div>
       </div>
-      {deleteError && (
-        <p className="diary-error-text mt-2 text-sm">{deleteError}</p>
+      {diaryDashboardStore.deleteError && (
+        <p className="diary-error-text mt-2 text-sm">{diaryDashboardStore.deleteError}</p>
       )}
 
-      <div ref={timelineRef} className="mt-6 flex flex-col space-y-4" id="timeline-scroll">
-        {loading && (
+      <div ref={diaryFeed.timelineRef} className="mt-6 flex flex-col space-y-4" id="timeline-scroll">
+        {diaryEntries.loading && (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
@@ -336,16 +123,16 @@ export default function DiaryFeed({
           </div>
         )}
 
-        {error && (
+        {diaryEntries.error && (
           <div className="diary-error-panel rounded-2xl border p-4 text-sm">
-            <p>{error}</p>
-            <Button variant="ghost" size="sm" className="mt-2 px-2" onClick={onRetry}>
+            <p>{diaryEntries.error}</p>
+            <Button variant="ghost" size="sm" className="mt-2 px-2" onClick={diaryEntries.refresh}>
               Coba lagi
             </Button>
           </div>
         )}
 
-        {showEmpty && (
+        {diaryFeed.showEmpty && (
           <div className="flex flex-1 items-center justify-center">
             <div className="diary-empty-panel rounded-2xl border border-dashed p-6 text-center">
               <p className="diary-empty-text">Belum ada apa-apa di sini. Tulis sesuatu dulu.</p>
@@ -353,33 +140,33 @@ export default function DiaryFeed({
           </div>
         )}
 
-        {!error && !loading &&
-          entries.map((entry, index) => (
+        {!diaryEntries.error && !diaryEntries.loading &&
+          diaryEntries.entries.map((entry, index) => (
             <DiaryCard
               key={entry.content.replaceAll(" ","") + index + "_baru"}
               entry={entry}
-              blurEnabled={diarySession.blurSettings.feedBlurEnabled}
-              selected={selectedEntryIds.includes(entry.id)}
-              active={timelineFocused && entry.id === activeEntryId}
-              showBlur={!revealSetRef.current.has(entry.id)}
-              onSelect={(extend) => handleSelectEntry(entry.id, { extend })}
-              onMention={() => onMentionEntry(entry)}
-              onJumpToMention={handleJumpToMention}
-              innerRef={registerEntryRef(entry.id)}
+              blurEnabled={diaryFeed.diarySession.blurSettings.feedBlurEnabled}
+              selected={diaryDashboardStore.selectedEntryIds.includes(entry.id)}
+              active={diaryFeed.timelineFocused && entry.id === diaryDashboardStore.activeEntryId}
+              showBlur={diaryFeed.shouldBlurEntry(entry.id)}
+              onSelect={(extend) => diaryFeed.handleSelectEntry(entry.id, { extend })}
+              onMention={() => handleAddMention(entry)}
+              onJumpToMention={diaryFeed.handleJumpToMention}
+              innerRef={diaryFeed.registerEntryRef(entry.id)}
             />
           ))}
-        <div ref={loadMoreRef} className="flex justify-center py-4">
-          {loadingMore && <Loader2 className="diary-loader size-5 animate-spin" />}
-          {!loading && !loadingMore && hasMore && (
+        <div ref={diaryFeed.loadMoreRef} className="flex justify-center py-4">
+          {diaryEntries.loadingMore && <Loader2 className="diary-loader size-5 animate-spin" />}
+          {!diaryEntries.loading && !diaryEntries.loadingMore && diaryEntries.hasMore && (
             <button
               type="button"
-              onClick={onLoadMore}
+              onClick={diaryEntries.loadMore}
               className="diary-link text-xs"
             >
               Muat lagi
             </button>
           )}
-          {!hasMore && !loading && entries.length > 0 && (
+          {!diaryEntries.hasMore && !diaryEntries.loading && diaryEntries.entries.length > 0 && (
             <span className="diary-text-muted text-xs">Sudah sampai akhir</span>
           )}
         </div>

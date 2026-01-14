@@ -1,21 +1,24 @@
 "use client";
 
-import { DiaryEntry, MentionReference } from "@/types/diary";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/ui/textarea";
 import { Button } from "@/ui/button";
-import { useDiaryComposer } from "@/hooks/useDiaryComposer";
+import { useDiaryComposer } from "@/hooks/diary/useDiaryComposer";
 import { createShortcutHandler } from "@/lib/keyboard";
 import { useEffect, useMemo } from "react";
+import { useDiaryDashboardStore } from "@/store/diaryDashboardStore";
+import { useDiaryEntries } from "@/hooks/diary/useDiaryEntries";
 
-interface DiaryComposerProps {
-  onPosted: (entry: DiaryEntry) => void;
-  mentions: MentionReference[];
-  onRemoveMention: (id: number) => void;
-}
-
-export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: DiaryComposerProps) {
-  const diaryComposer = useDiaryComposer({ onPosted, mentions });
+export default function DiaryComposer() {
+  const diaryDashboardStore = useDiaryDashboardStore();
+  const diaryEntries = useDiaryEntries(diaryDashboardStore.search);
+  const diaryComposer = useDiaryComposer({
+    onPosted: (entry) => {
+      diaryEntries.appendEntry(entry);
+      diaryDashboardStore.clearMentions();
+    },
+    mentions: diaryDashboardStore.mentionDrafts,
+  });
   const textareaRef = diaryComposer.textareaRef;
 
   const isTextareaFocused = () => document.activeElement === textareaRef.current;
@@ -54,20 +57,38 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const handleKeyUp = useMemo(() => {
+    const releaseHold = () => diaryComposer.setHoldReveal((prev) => (prev ? false : prev));
+    const isComposerFocused = () => document.activeElement === textareaRef.current;
+    return createShortcutHandler([
+      {
+        combo: "s",
+        allowExtraModifiers: true,
+        preventDefault: false,
+        when: isComposerFocused,
+        handler: releaseHold,
+      },
+      {
+        combo: "ctrl",
+        allowExtraModifiers: true,
+        preventDefault: false,
+        when: isComposerFocused,
+        handler: releaseHold,
+      },
+      {
+        combo: "alt",
+        allowExtraModifiers: true,
+        preventDefault: false,
+        when: isComposerFocused,
+        handler: releaseHold,
+      },
+    ]);
+  }, [diaryComposer.setHoldReveal, textareaRef]);
+
   useEffect(() => {
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() === "s" ||
-        !event.ctrlKey ||
-        !event.altKey ||
-        document.activeElement !== textareaRef.current
-      ) {
-        diaryComposer.setHoldReveal((prev) => (prev ? false : prev));
-      }
-    };
     window.addEventListener("keyup", handleKeyUp);
     return () => window.removeEventListener("keyup", handleKeyUp);
-  }, [diaryComposer.setHoldReveal, textareaRef]);
+  }, [handleKeyUp]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -99,7 +120,7 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
         </div>
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        {mentions.length > 0 && (
+        {diaryDashboardStore.mentionDrafts.length > 0 && (
           <div
             className={cn(
               "diary-mention-block rounded-2xl border p-4 space-y-2 transition-all",
@@ -107,13 +128,13 @@ export default function DiaryComposer({ onPosted, mentions, onRemoveMention }: D
             )}
           >
             <p className="diary-label">Menanggapi</p>
-            {mentions.map((mention) => (
+            {diaryDashboardStore.mentionDrafts.map((mention) => (
               <div key={`mention-preview-${mention.id}`} className="diary-mention-preview rounded-xl border p-3">
                 <div className="diary-mention-preview-meta flex items-center justify-between">
                   <span>{formatTimeAgo(mention.createdAt)}</span>
                   <button
                     type="button"
-                    onClick={() => onRemoveMention(mention.id)}
+                    onClick={() => diaryDashboardStore.removeMention(mention.id)}
                     className="diary-mention-remove"
                   >
                     Hapus

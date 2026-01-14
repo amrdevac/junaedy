@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack --port=3321",
     "db": "turso dev --db-file=database-blue-xylophone.db --port=8082",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start --port=3321",
     "lint": "next lint"
   },

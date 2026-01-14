@@ -5,6 +5,7 @@ interface ShortcutConfig {
   when?: () => boolean;
   preventDefault?: boolean;
   handler: (event: KeyboardEvent) => void;
+  allowExtraModifiers?: boolean;
 }
 
 interface ParsedCombo {
@@ -27,11 +28,17 @@ function parseCombo(combo: string): ParsedCombo {
   return { key, modifiers: modifierSet };
 }
 
-function matchesEvent(event: KeyboardEvent, combo: ParsedCombo) {
-  if (combo.modifiers.has("ctrl") !== event.ctrlKey) return false;
-  if (combo.modifiers.has("alt") !== event.altKey) return false;
-  if (combo.modifiers.has("shift") !== event.shiftKey) return false;
-  if (combo.modifiers.has("meta") !== event.metaKey) return false;
+function matchesEvent(event: KeyboardEvent, combo: ParsedCombo, allowExtra: boolean) {
+  const checkModifier = (modifier: ModifierKey, pressed: boolean) => {
+    if (combo.modifiers.has(modifier)) {
+      return pressed;
+    }
+    return allowExtra || !pressed;
+  };
+  if (!checkModifier("ctrl", event.ctrlKey)) return false;
+  if (!checkModifier("alt", event.altKey)) return false;
+  if (!checkModifier("shift", event.shiftKey)) return false;
+  if (!checkModifier("meta", event.metaKey)) return false;
   const eventKey = event.key.toLowerCase();
   if (!combo.key) {
     return true;
@@ -46,7 +53,8 @@ export function createShortcutHandler(configs: ShortcutConfig[]) {
   }));
   return (event: KeyboardEvent) => {
     for (const item of parsed) {
-      if (!matchesEvent(event, item.combo)) continue;
+      const allowExtra = item.allowExtraModifiers ?? false;
+      if (!matchesEvent(event, item.combo, allowExtra)) continue;
       if (item.when && !item.when()) continue;
       if (item.preventDefault !== false) {
         event.preventDefault();
