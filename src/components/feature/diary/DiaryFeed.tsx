@@ -1,6 +1,7 @@
 "use client";
 
 import { DiaryEntry, MentionReference } from "@/types/diary";
+import { obfuscateContent } from "@/lib/obfuscateContent";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
@@ -8,7 +9,7 @@ import { Loader2, Search } from "lucide-react";
 import { useDiaryFeed } from "@/hooks/diary/useDiaryFeed";
 import { useDiaryDashboardStore } from "@/store/diaryDashboardStore";
 import { useDiaryEntries } from "@/hooks/diary/useDiaryEntries";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export default function DiaryFeed() {
   const diaryDashboardStore = useDiaryDashboardStore();
@@ -200,6 +201,21 @@ function DiaryCard({
 }: DiaryCardProps) {
   const timestamp = useMemo(() => formatTimeAgo(entry.createdAt), [entry.createdAt]);
   const shouldBlur = blurEnabled && showBlur;
+  const [hovering, setHovering] = useState(false);
+  const maskContent = shouldBlur && !hovering;
+  const obfuscatedBody = useMemo(
+    () => obfuscateContent(entry.content, `${entry.id}-${entry.createdAt}`),
+    [entry.content, entry.createdAt, entry.id]
+  );
+  const obfuscatedMentions = useMemo(() => {
+    const map = new Map<number, string>();
+    (entry.mentions ?? []).forEach((mention, index) => {
+      const seed = `${entry.id}-${mention.id}-${index}`;
+      map.set(mention.id, obfuscateContent(mention.preview, seed));
+    });
+    return map;
+  }, [entry.mentions, entry.id]);
+  const displayContent = maskContent ? obfuscatedBody : entry.content;
 
   return (
     <article
@@ -218,6 +234,8 @@ function DiaryCard({
         selected && "ring-2 diary-card-selected",
         active && "ring-2 diary-card-active"
       )}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
       aria-pressed={selected}
     >
       <div className="diary-card-label mb-3 flex items-center justify-between text-xs uppercase tracking-widest">
@@ -249,7 +267,9 @@ function DiaryCard({
               <p className="diary-mention-label text-[11px] uppercase tracking-[0.3em]">
                 Menyambung {formatTimeAgo(mention.createdAt)}
               </p>
-              <p className="diary-mention-text">{mention.preview}</p>
+              <p className="diary-mention-text">
+                {maskContent ? obfuscatedMentions.get(mention.id) ?? "" : mention.preview}
+              </p>
               <button
                 type="button"
                 onClick={(event) => {
@@ -271,7 +291,7 @@ function DiaryCard({
             shouldBlur && "blur-md hover:blur-none group-hover:blur-none"
           )}
         >
-          {entry.content}
+          {displayContent}
         </p>
       </div>
     </article>
