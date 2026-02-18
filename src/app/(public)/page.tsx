@@ -1,17 +1,11 @@
 import { Metadata } from "next";
-import LandingPage from "@/components/contents/LandingPageContent";
-import ExampleServiceShowcase from "@/components/examples/ExampleServiceShowcase";
+import DashboardPage from "@/components/dashboard/DashboardPage";
 
 export const metadata: Metadata = {
-  title: "Next.js Boiler Home",
-  description: "Boilerplate landing page plus hook + API contoh.",
+  title: "Junaedy Dashboard",
+  description: "Mandarin study dashboard for the Junaedy app.",
 };
 
 export default function Home() {
-  return (
-    <main className="flex flex-col gap-16 pb-16">
-      <LandingPage />
-      <ExampleServiceShowcase />
-    </main>
-  );
+  return <DashboardPage />;
 }

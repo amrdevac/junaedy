@@ -27,6 +27,12 @@ Dokumen ini jadi referensi buat gaya koding di boilerplate Next.js ini supaya ko
 - **Shortcut & event handler**: pakai util/helper supaya kode tetap rapi (contoh `createShortcutHandler` di modul keyboard helper), jangan hardcode `handleKeyDown` panjang di tiap komponen.
 - **Semua state + request logic** untuk feature besar dikemas via custom hook dengan penamaan `useSomething`. Komponen utama fokus ke UI + efek ringan saja.
   **Penamaan File Hook** harus di awali dengan use , dan harus selalu camelcase
+- **Komponen reusable**: kalau UI/logic mirip, buat komponen reusable daripada duplikasi.
+- **Props > 3**: kalau sebuah komponen butuh lebih dari 3 props, kirim data lewat Zustand.
+- **State management**: utamakan Zustand, jangan bikin state manager custom ala-ala Zustand.
+- **Pesan teks berulang**: kalau nilai message/pesan mirip atau berulang, jadikan konstanta global yang bisa dipakai di mana saja.
+- **UI components**: utamakan pakai komponen shadcn jika sudah tersedia (contoh: sheet, toast/sonner, dialog).
+- **Form controls**: tombol dan input form harus pakai komponen global (reusable) supaya konsisten dan mudah dirawat saat ada varian baru.
 
 ## 3. Checklist Saat Commit
 1. Semua hook/object dipanggil tanpa destructuring.
