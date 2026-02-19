@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, Search } from "lucide-react";
 
 import useDashboardStore from "@/store/useDashboardStore";
@@ -10,6 +12,7 @@ function DashboardTopNav() {
   const appName = useDashboardStore((state) => state.appName);
   const navItems = useDashboardStore((state) => state.navItems);
   const user = useDashboardStore((state) => state.user);
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-base-300 bg-base-100 shadow-sm">
@@ -24,22 +27,24 @@ function DashboardTopNav() {
             </div>
           </div>
           <nav className="hidden items-center gap-8 md:flex">
-          {navItems.map(function (item) {
-            return (
-              <a
-                key={item.id}
-                href={item.href}
-                className={cn(
-                  "border-b-2 border-transparent py-5 text-sm font-medium text-base-content/60 transition-colors hover:text-primary",
-                  item.isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-base-content/60"
-                )}
-              >
-                {item.label}
-              </a>
-            );
-          })}
+            {navItems.map(function (item) {
+              const isActive = item.href === "/" ? pathname === "/" : pathname === item.href;
+
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={cn(
+                    "border-b-2 border-transparent py-5 text-sm font-medium text-base-content/60 transition-colors hover:text-primary",
+                    isActive
+                      ? "border-primary text-primary"
+                      : "border-transparent text-base-content/60"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div className="flex items-center gap-4">

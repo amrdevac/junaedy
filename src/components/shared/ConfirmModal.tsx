@@ -1,7 +1,18 @@
 import React from "react";
-import Modal from "./Modal";
-import { Button } from "@/components/ui/button";
-import { Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -9,25 +20,26 @@ export interface ConfirmModalProps {
   message?: string;
   confirmText?: string;
   cancelText?: string;
+  confirmButtonClassName?: string;
+  cancelButtonClassName?: string;
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
   autoFocusConfirm?: boolean;
-  fullscreen?: boolean;
   variant?: "default" | "overlay";
 }
 
-const ConfirmModal: React.FC<ConfirmModalProps> = ({
-  isOpen,
-  title = "Confirm",
-  message = "Are you sure?",
-  confirmText = "Confirm",
-  cancelText = "Cancel",
-  onConfirm,
-  onCancel,
-  autoFocusConfirm = false,
-  fullscreen = false,
-  variant = "default",
-}) => {
+const ConfirmModal: React.FC<ConfirmModalProps> = (props) => {
+  const isOpen = props.isOpen;
+  const title = props.title || "Confirm";
+  const message = props.message || "Are you sure?";
+  const confirmText = props.confirmText || "Confirm";
+  const cancelText = props.cancelText || "Cancel";
+  const confirmButtonClassName = props.confirmButtonClassName;
+  const cancelButtonClassName = props.cancelButtonClassName;
+  const onConfirm = props.onConfirm;
+  const onCancel = props.onCancel;
+  const autoFocusConfirm = props.autoFocusConfirm || false;
+  const variant = props.variant || "default";
   const [loading, setLoading] = React.useState(false);
 
   const handleConfirm = async () => {
@@ -39,72 +51,71 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     }
   };
 
+  const handleConfirmClick = async (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+    if (loading) return;
+    await handleConfirm();
+    handleClose();
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    }
+  };
+
   const handleClose = () => {
     if (!loading) {
       onCancel();
     }
   };
 
-  React.useEffect(() => {
-    if (!isOpen || variant !== "overlay") return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (!loading) {
-          onCancel();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, variant, loading, onCancel]);
-
-  const body = (
-    <>
-      <p className="text-slate-700">{message}</p>
-      <div className="mt-6 flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel} type="button" disabled={loading}>
-          {cancelText}
-        </Button>
-        <Button onClick={handleConfirm} type="button" disabled={loading} autoFocus={autoFocusConfirm}>
-          {loading && <Loader2 className="animate-spin" />}
-          {confirmText}
-        </Button>
-      </div>
-    </>
-  );
-
-  if (variant === "overlay") {
-    if (!isOpen) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-        <div
-          className="absolute inset-0 bg-slate-900/80 backdrop-blur"
-          onClick={handleClose}
-          aria-hidden="true"
-        />
-        <div className="relative z-10 w-full max-w-md rounded-[32px] border border-white/20 bg-white p-6 text-slate-900 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            <button
-              onClick={handleClose}
-              aria-label="Tutup konfirmasi"
-              className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
-              type="button"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="pt-4">{body}</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={title} fullscreen={fullscreen}>
-      {body}
-    </Modal>
+    <AlertDialog open={isOpen} onOpenChange={handleOpenChange}>
+      <AlertDialogContent
+        className={cn(
+          "w-full max-w-md rounded-[28px] border-2 border-base-200 bg-base-100 p-6 text-center shadow-2xl",
+          variant === "overlay" ? "bg-base-100" : null
+        )}
+      >
+        <AlertDialogHeader className="text-center">
+          <AlertDialogMedia className="bg-error/10 text-error mb-3 rounded-full">
+            <AlertTriangle className="size-8" />
+          </AlertDialogMedia>
+          <AlertDialogTitle className="text-2xl font-semibold text-primary">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-sm text-base-content/70">
+            {message}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-6 flex w-full flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+          <AlertDialogCancel
+            className={cn(
+              "h-11 w-full rounded-xl border-base-200 text-base-content/70 hover:bg-base-200 sm:w-[200px]",
+              cancelButtonClassName
+            )}
+            disabled={loading}
+          >
+            {cancelText}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirmClick}
+            autoFocus={autoFocusConfirm}
+            className={cn(
+              "h-11 w-full rounded-xl bg-error text-white shadow-sm hover:bg-error/90 sm:w-[200px]",
+              confirmButtonClassName
+            )}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="animate-spin" /> : null}
+            {confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
 

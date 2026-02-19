@@ -12,10 +12,10 @@ function DashboardPage() {
   return (
     <div className="min-h-screen bg-base-200 text-base-content">
       <DashboardTopNav />
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-16 pt-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-20 pb-16 pt-8 ">
         <DashboardHero />
         <DashboardStatGrid />
-        <DashboardCollectionCard />
+        <DashboardCollectionCard limit={15} showViewAll={true} />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <DashboardProgressCard />
           <DashboardQuizCard />

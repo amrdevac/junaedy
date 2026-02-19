@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import useDashboardStore from "@/store/useDashboardStore";
@@ -21,8 +22,9 @@ function DashboardQuizCard() {
           {recommendedQuizzes.map(function (quiz) {
             const Icon = quiz.icon;
             return (
-              <div
+              <Link
                 key={quiz.id}
+                href="/quiz"
                 className="group flex items-center gap-4 rounded-lg border border-slate-100 px-4 py-3 transition-colors hover:border-primary"
               >
                 <div className="flex size-10 items-center justify-center rounded bg-blue-50 text-primary">
@@ -37,15 +39,16 @@ function DashboardQuizCard() {
                   </span>
                 </div>
                 <ChevronRight className="size-5 text-base-content/30" />
-              </div>
+              </Link>
             );
           })}
         </div>
         <Button
           variant="link"
           className="h-auto w-full justify-center p-0 text-sm font-bold text-primary"
+          asChild
         >
-          View all available quizzes
+          <Link href="/quiz">View all available quizzes</Link>
         </Button>
       </CardContent>
     </Card>

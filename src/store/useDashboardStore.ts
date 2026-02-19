@@ -34,7 +34,7 @@ type DashboardStat = {
   icon: LucideIcon;
 };
 
-type DashboardCharacter = {
+export type DashboardCharacter = {
   id: string;
   hanzi: string;
   pinyin: string;
@@ -72,16 +72,18 @@ type DashboardState = {
   progressGoal: string;
   progressStats: DashboardProgress[];
   recommendedQuizzes: DashboardQuiz[];
+  setCharacters: (items: DashboardCharacter[]) => void;
+  setStatValue: (id: string, value: string) => void;
+  setStatCaption: (id: string, caption: string) => void;
 };
 
-const useDashboardStore = create<DashboardState>(function () {
+const useDashboardStore = create<DashboardState>(function (set) {
   return {
     appName: "Junaedy",
     navItems: [
-      { id: "home", label: "Home", href: "#", isActive: false },
-      { id: "hanzi", label: "My Hanzi", href: "#", isActive: true },
-      { id: "quiz", label: "Take a Quiz", href: "#", isActive: false },
-      { id: "leaderboard", label: "Leaderboard", href: "#", isActive: false },
+      { id: "home", label: "Home", href: "/", isActive: true },
+      { id: "quiz", label: "Take a Quiz", href: "/quiz", isActive: false },
+      { id: "typing", label: "Typing Test", href: "#", isActive: false },
     ],
     user: {
       name: "Junaedy",
@@ -96,8 +98,8 @@ const useDashboardStore = create<DashboardState>(function () {
       {
         id: "total-vocab",
         title: "Total Vocab",
-        value: "1,284",
-        caption: "+12 WEEK",
+        value: "0",
+        caption: "",
         meta: "Total vocabulary stored",
         tone: "info",
         icon: BookOpen,
@@ -130,48 +132,7 @@ const useDashboardStore = create<DashboardState>(function () {
         icon: LineChart,
       },
     ],
-    characters: [
-      {
-        id: "ni-hao",
-        hanzi: "你好",
-        pinyin: "Nǐhǎo",
-        meaning: "Hello",
-        proficiencyLabel: "Mastered",
-        proficiencyPercent: 88,
-        proficiencyTone: "success",
-        lastReviewed: "Oct 24, 2023",
-      },
-      {
-        id: "xue-xi",
-        hanzi: "学习",
-        pinyin: "Xuéxí",
-        meaning: "To study / Learn",
-        proficiencyLabel: "Learning",
-        proficiencyPercent: 52,
-        proficiencyTone: "info",
-        lastReviewed: "Oct 25, 2023",
-      },
-      {
-        id: "han-zi",
-        hanzi: "汉字",
-        pinyin: "Hànzì",
-        meaning: "Chinese Characters",
-        proficiencyLabel: "Needs Review",
-        proficiencyPercent: 32,
-        proficiencyTone: "warning",
-        lastReviewed: "Oct 22, 2023",
-      },
-      {
-        id: "peng-you",
-        hanzi: "朋友",
-        pinyin: "Péngyǒu",
-        meaning: "Friend",
-        proficiencyLabel: "Mastered",
-        proficiencyPercent: 90,
-        proficiencyTone: "success",
-        lastReviewed: "Oct 26, 2023",
-      },
-    ],
+    characters: [],
     progressLabel: "Overall Mastery",
     progressPercent: 72,
     progressGoal: "HSK 4 Goal",
@@ -196,6 +157,33 @@ const useDashboardStore = create<DashboardState>(function () {
         icon: Award,
       },
     ],
+    setCharacters: function (items: DashboardCharacter[]) {
+      set({ characters: items });
+    },
+    setStatValue: function (id: string, value: string) {
+      set(function (state) {
+        return {
+          stats: state.stats.map(function (stat) {
+            if (stat.id === id) {
+              return { ...stat, value };
+            }
+            return stat;
+          }),
+        };
+      });
+    },
+    setStatCaption: function (id: string, caption: string) {
+      set(function (state) {
+        return {
+          stats: state.stats.map(function (stat) {
+            if (stat.id === id) {
+              return { ...stat, caption };
+            }
+            return stat;
+          }),
+        };
+      });
+    },
   };
 });
 
