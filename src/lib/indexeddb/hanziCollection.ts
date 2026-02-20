@@ -5,6 +5,7 @@ export type HanziRecord = {
   meaning: string;
   proficiency: "baru" | "belajar" | "mahir";
   createdAt: string;
+  type?: "character" | "sentence";
 };
 
 export type QuizHistoryEntry = {
@@ -13,6 +14,7 @@ export type QuizHistoryEntry = {
   durationMs: number;
   totalQuestions: number;
   correctCount: number;
+  finalScore?: number;
   answers: QuizHistoryAnswer[];
 };
 
@@ -23,6 +25,7 @@ export type QuizHistoryAnswer = {
   userAnswer: string;
   isCorrect: boolean;
   direction: "hanzi-to-meaning" | "meaning-to-hanzi";
+  pinyinShown?: boolean;
 };
 
 const DB_NAME = "junaedy-hanzi";
@@ -103,6 +106,54 @@ export async function getAllHanziRecords(): Promise<HanziRecord[]> {
   return records;
 }
 
+export async function getHanziRecord(id: string): Promise<HanziRecord | null> {
+  if (typeof window === "undefined") return null;
+  const db = await openDatabase();
+  const transaction = db.transaction(STORE_NAME, "readonly");
+  const store = transaction.objectStore(STORE_NAME);
+  const request = store.get(id);
+
+  const record = await new Promise<HanziRecord | null>(function (resolve, reject) {
+    request.onsuccess = function () {
+      resolve((request.result as HanziRecord) || null);
+    };
+    request.onerror = function () {
+      reject(request.error);
+    };
+  });
+
+  await transactionDone(transaction);
+  db.close();
+  return record;
+}
+
+export async function updateHanziRecord(
+  id: string,
+  updates: Partial<HanziRecord>
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  const db = await openDatabase();
+  const transaction = db.transaction(STORE_NAME, "readwrite");
+  const store = transaction.objectStore(STORE_NAME);
+  const request = store.get(id);
+
+  const record = await new Promise<HanziRecord | null>(function (resolve, reject) {
+    request.onsuccess = function () {
+      resolve((request.result as HanziRecord) || null);
+    };
+    request.onerror = function () {
+      reject(request.error);
+    };
+  });
+
+  if (record) {
+    store.put({ ...record, ...updates });
+  }
+
+  await transactionDone(transaction);
+  db.close();
+}
+
 export async function deleteHanziRecord(id: string): Promise<void> {
   if (typeof window === "undefined") return;
   const db = await openDatabase();
@@ -134,6 +185,37 @@ export async function addQuizHistory(entry: QuizHistoryEntry): Promise<void> {
   const transaction = db.transaction(QUIZ_STORE, "readwrite");
   const store = transaction.objectStore(QUIZ_STORE);
   store.put(entry);
+  await transactionDone(transaction);
+  db.close();
+}
+
+export async function getAllQuizHistory(): Promise<QuizHistoryEntry[]> {
+  if (typeof window === "undefined") return [];
+  const db = await openDatabase();
+  const transaction = db.transaction(QUIZ_STORE, "readonly");
+  const store = transaction.objectStore(QUIZ_STORE);
+  const request = store.getAll();
+
+  const records = await new Promise<QuizHistoryEntry[]>(function (resolve, reject) {
+    request.onsuccess = function () {
+      resolve(request.result as QuizHistoryEntry[]);
+    };
+    request.onerror = function () {
+      reject(request.error);
+    };
+  });
+
+  await transactionDone(transaction);
+  db.close();
+  return records;
+}
+
+export async function clearQuizHistory(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const db = await openDatabase();
+  const transaction = db.transaction(QUIZ_STORE, "readwrite");
+  const store = transaction.objectStore(QUIZ_STORE);
+  store.clear();
   await transactionDone(transaction);
   db.close();
 }

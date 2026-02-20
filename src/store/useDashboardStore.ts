@@ -43,6 +43,7 @@ export type DashboardCharacter = {
   proficiencyPercent: number;
   proficiencyTone: "success" | "warning" | "info";
   lastReviewed: string;
+  type?: "character" | "sentence";
 };
 
 type DashboardProgress = {
@@ -83,6 +84,7 @@ const useDashboardStore = create<DashboardState>(function (set) {
     navItems: [
       { id: "home", label: "Home", href: "/", isActive: true },
       { id: "quiz", label: "Take a Quiz", href: "/quiz", isActive: false },
+      { id: "quiz_history", label: "Quiz History ", href: "/quiz/history", isActive: false },
       { id: "typing", label: "Typing Test", href: "#", isActive: false },
     ],
     user: {

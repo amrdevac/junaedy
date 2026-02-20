@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Pencil, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import useDashboardStore from "@/store/useDashboardStore";
@@ -9,17 +9,12 @@ import useHanziCollectionSync from "@/hooks/useHanziCollectionSync";
 import { deleteHanziRecord, deleteHanziRecords } from "@/lib/indexeddb/hanziCollection";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/ui/input";
 import { cn } from "@/lib/utils";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import CollectionColumnSelector from "@/components/collection/CollectionColumnSelector";
+import CollectionEmptyState from "@/components/collection/CollectionEmptyState";
+import CollectionEditModal from "@/components/collection/CollectionEditModal";
 
 type ColumnOption = {
   id: string;
@@ -27,50 +22,6 @@ type ColumnOption = {
   isChecked: boolean;
   onToggle: () => void;
 };
-
-type ColumnSelectorProps = {
-  options: ColumnOption[];
-};
-
-function ColumnSelector(props: ColumnSelectorProps) {
-  const options = props.options;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="border-base-300 text-base-content/70 hover:bg-base-200"
-          type="button"
-          aria-label="Pilih kolom"
-        >
-          <SlidersHorizontal className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-56 rounded-xl border-base-300 bg-base-100 p-2 text-xs text-base-content/70 shadow-lg"
-      >
-        <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-base-content/40">
-          Kolom
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {options.map(function (option) {
-          return (
-            <DropdownMenuCheckboxItem
-              key={option.id}
-              checked={option.isChecked}
-              onCheckedChange={option.onToggle}
-            >
-              {option.label}
-            </DropdownMenuCheckboxItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 type DashboardCollectionCardProps = {
   limit?: number;
@@ -81,18 +32,20 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
   const limit = props.limit;
   const showViewAll = props.showViewAll ?? false;
   const collectionSync = useHanziCollectionSync();
+  const initialBatch = 10;
+  const loadStep = 10;
 
   const characters = useDashboardStore((state) => state.characters);
   const totalCharacters = characters.length;
-  const pageSizeState = useState(10);
-  const pageSize = pageSizeState[0];
-  const setPageSize = pageSizeState[1];
-  const currentPageState = useState(1);
-  const currentPage = currentPageState[0];
-  const setCurrentPage = currentPageState[1];
+  const itemsToShowState = useState(initialBatch);
+  const itemsToShow = itemsToShowState[0];
+  const setItemsToShow = itemsToShowState[1];
   const modalState = useState<string | null>(null);
   const deleteTargetId = modalState[0];
   const setDeleteTargetId = modalState[1];
+  const editState = useState<string | null>(null);
+  const editTargetId = editState[0];
+  const setEditTargetId = editState[1];
   const selectionState = useState<string[]>([]);
   const selectedIds = selectionState[0];
   const setSelectedIds = selectionState[1];
@@ -117,21 +70,29 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
   const showActionsState = useState(true);
   const showActions = showActionsState[0];
   const setShowActions = showActionsState[1];
+  const searchQueryState = useState("");
+  const searchQuery = searchQueryState[0];
+  const setSearchQuery = searchQueryState[1];
   const rowMenuState = useState<string | null>(null);
   const openRowMenuId = rowMenuState[0];
   const setOpenRowMenuId = rowMenuState[1];
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
-  const totalPages = Math.max(1, Math.ceil(totalCharacters / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const startIndex = (safePage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalCharacters);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const isLoadingMoreRef = useRef(false);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredCharacters = !limit && normalizedQuery
+    ? characters.filter((item) => {
+        if (item.type === "sentence") return false;
+        return [item.hanzi, item.pinyin, item.meaning]
+          .some((value) => (value || "").toLowerCase().includes(normalizedQuery));
+      })
+    : characters.filter((item) => item.type !== "sentence");
   const visibleCharacters = limit
-    ? characters.slice(0, limit)
-    : characters.slice(startIndex, endIndex);
+    ? filteredCharacters.slice(0, limit)
+    : filteredCharacters.slice(0, itemsToShow);
   const visibleCount = visibleCharacters.length;
-  const rowCountForHeight = limit ? limit : pageSize;
-  const tableMinHeight = rowCountForHeight * 64 + 72;
+  const hasMore = !limit && visibleCount < filteredCharacters.length;
   const columnOptions: ColumnOption[] = [
     {
       id: "character",
@@ -150,24 +111,6 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
       label: "Arti",
       isChecked: showMeaning,
       onToggle: () => setShowMeaning(!showMeaning),
-    },
-    {
-      id: "proficiency",
-      label: "Proficiency",
-      isChecked: showProficiency,
-      onToggle: () => setShowProficiency(!showProficiency),
-    },
-    {
-      id: "last-reviewed",
-      label: "Last Reviewed",
-      isChecked: showLastReviewed,
-      onToggle: () => setShowLastReviewed(!showLastReviewed),
-    },
-    {
-      id: "actions",
-      label: "Actions",
-      isChecked: showActions,
-      onToggle: () => setShowActions(!showActions),
     },
   ];
 
@@ -220,15 +163,6 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
 
   useEffect(
     function () {
-      if (currentPage !== safePage) {
-        setCurrentPage(safePage);
-      }
-    },
-    [currentPage, safePage]
-  );
-
-  useEffect(
-    function () {
       if (!openRowMenuId) return;
 
       const handleClickOutside = (event: MouseEvent) => {
@@ -254,6 +188,43 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
     },
     [openRowMenuId]
   );
+
+  useEffect(() => {
+    if (limit) return;
+    setItemsToShow(function (prev) {
+      if (totalCharacters === 0) return initialBatch;
+      return Math.min(Math.max(prev, initialBatch), totalCharacters);
+    });
+  }, [limit, totalCharacters, initialBatch]);
+
+  useEffect(() => {
+    if (limit) return;
+    const node = loadMoreRef.current;
+    if (!node) return;
+
+    const handleLoadMore = () => {
+      if (!hasMore || isLoadingMoreRef.current) return;
+      isLoadingMoreRef.current = true;
+      setItemsToShow(function (prev) {
+        return Math.min(prev + loadStep, totalCharacters);
+      });
+      window.setTimeout(() => {
+        isLoadingMoreRef.current = false;
+      }, 120);
+    };
+
+    const observer = new IntersectionObserver(
+      function (entries) {
+        if (entries[0]?.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [limit, hasMore, loadStep, totalCharacters]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -287,32 +258,44 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
 
   return (
     <Card className="overflow-hidden rounded-xl border border-slate-200 bg-base-100 shadow-md">
-      <CardHeader className="flex flex-col gap-4 border-b border-slate-200 px-6 pb-4 pt-6 md:flex-row md:items-center md:justify-between">
+      <CardHeader className="flex flex-col gap-4 px-6 pb-4  md:flex-row md:items-center md:justify-between">
         <CardTitle className="text-lg font-bold text-base-content">
           Character Collection
         </CardTitle>
+        {limit ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <CollectionColumnSelector options={columnOptions} />
+            {showViewAll ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-base-300 text-base-content/70 hover:bg-base-200"
+                asChild
+              >
+                <Link href="/collection">Lihat semua</Link>
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <div />
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {limit ? (
           <div className="px-6 pb-6 pt-2">
             {characters.length === 0 ? (
-              <div className="rounded-xl border border-base-200 bg-base-100 px-6 py-8 text-center text-sm text-base-content/60">
-                Belum ada koleksi Hanzi. Tambahkan lewat tombol New Hanzi.
-              </div>
+              <CollectionEmptyState message="Belum ada koleksi Hanzi. Tambahkan lewat tombol New Hanzi." />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 {visibleCharacters.map(function (item) {
                   return (
                     <div
                       key={item.id}
-                      className="rounded-xl border border-base-200 bg-base-100 px-4 py-4 shadow-sm transition-colors hover:border-primary/40"
+                      className="rounded-xl border border-base-200 bg-base-100 px-4 py-4 shadow-sm transition-colors hover:border-primary/40 text-center"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-center justify-center">
                         <span className="hanzi-font text-3xl font-semibold text-base-content">
                           {item.hanzi}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40">
-                          Baru
                         </span>
                       </div>
                       {showPinyin ? (
@@ -332,79 +315,76 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto" style={{ minHeight: tableMinHeight }}>
-            <table className="min-w-[720px] w-full text-left">
-              <thead>
-                <tr className="bg-base-200 text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  {showCharacter ? (
-                    <th className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <input
-                          ref={selectAllRef}
-                          type="checkbox"
-                          className="size-4 rounded border-base-300"
-                          checked={characters.length > 0 && selectedIds.length === characters.length}
-                          onChange={handleToggleSelectAll}
-                          aria-label="Select all characters"
-                        />
-                        <span>Character</span>
-                      </div>
-                    </th>
-                  ) : null}
-                  {showPinyin ? <th className="px-6 py-4">Pinyin</th> : null}
-                  {showMeaning ? <th className="px-6 py-4">Meaning</th> : null}
-                  {showProficiency ? <th className="px-6 py-4">Proficiency</th> : null}
-                  {showLastReviewed ? <th className="px-6 py-4">Last Reviewed</th> : null}
-                  {showActions ? <th className="px-3 py-4 w-[64px] text-center">Actions</th> : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {characters.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-sm text-base-content/60"
-                    >
-                      Belum ada koleksi Hanzi. Tambahkan lewat tombol New Hanzi.
-                    </td>
-                  </tr>
-                ) : null}
+          <div className="px-6 pb-6 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-base-300 text-base-content/70 hover:bg-base-200"
+                disabled={selectedIds.length === 0}
+                onClick={() => setIsBulkModalOpen(true)}
+              >
+                Hapus Terpilih ({selectedIds.length})
+              </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-base-content/50" />
+                <Input
+                  className="w-56 rounded-lg border-slate-200 bg-base-200 pl-9 text-sm focus-visible:ring-2 focus-visible:ring-primary/40"
+                  placeholder="Search characters, pinyin, or meaning..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
+              <CollectionColumnSelector options={columnOptions} />
+            </div>
+            {characters.length === 0 ? (
+              <CollectionEmptyState
+                className="mt-4"
+                message="Belum ada koleksi Hanzi. Tambahkan lewat tombol New Hanzi."
+              />
+            ) : (
+              <div className="mt-4 flex flex-col gap-3">
                 {visibleCharacters.map(function (item) {
                   return (
-                    <tr
+                    <div
                       key={item.id}
-                      className="group transition-colors hover:bg-base-200/60"
+                      className="group grid grid-cols-1 gap-3 rounded-xl border border-base-200 bg-base-100 px-5 py-4 shadow-sm transition-colors hover:border-primary/40 md:grid-cols-[180px_minmax(220px,1fr)_220px_160px_48px] md:items-center md:gap-6"
                     >
                       {showCharacter ? (
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              className="size-4 rounded border-base-300"
-                              checked={selectedIds.includes(item.id)}
-                              onChange={() => handleToggleSelect(item.id)}
-                              aria-label={`Select ${item.hanzi}`}
-                            />
-                            <span className="hanzi-font text-3xl font-medium text-base-content transition-colors group-hover:text-primary">
-                              {item.hanzi}
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-base-300"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={() => handleToggleSelect(item.id)}
+                            aria-label={`Select ${item.hanzi}`}
+                          />
+                          <span className="hanzi-font text-3xl font-medium text-base-content transition-colors group-hover:text-primary truncate">
+                            {item.hanzi}
+                          </span>
+                        </div>
+                      ) : null}
+                      {showPinyin || showMeaning ? (
+                        <div className="flex flex-col min-w-0">
+                          {showPinyin ? (
+                            <span className="text-sm font-semibold text-primary truncate">
+                              {item.pinyin}
                             </span>
-                          </div>
-                        </td>
-                      ) : null}
-                      {showPinyin ? (
-                        <td className="px-6 py-5 text-sm text-base-content/70">
-                          {item.pinyin}
-                        </td>
-                      ) : null}
-                      {showMeaning ? (
-                        <td className="px-6 py-5 text-sm font-medium text-base-content/70">
-                          {item.meaning}
-                        </td>
+                          ) : null}
+                          {showMeaning ? (
+                            <span className="text-sm text-base-content/60 truncate">
+                              {item.meaning}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                       {showProficiency ? (
-                        <td className="px-6 py-5">
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-widest text-base-content/40">
+                            Proficiency
+                          </span>
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-full max-w-[80px] rounded-full bg-base-200">
+                            <div className="h-1.5 w-full max-w-[120px] rounded-full bg-base-200">
                               <span
                                 className={cn(
                                   "block h-1.5 rounded-full",
@@ -430,17 +410,20 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
                               {item.proficiencyLabel}
                             </span>
                           </div>
-                        </td>
+                        </div>
                       ) : null}
                       {showLastReviewed ? (
-                        <td className="px-6 py-5 text-xs text-base-content/50">
-                          {item.lastReviewed}
-                        </td>
+                        <div className="flex flex-col text-xs text-base-content/60">
+                          <span className="text-[11px] font-semibold uppercase tracking-widest text-base-content/40">
+                            Last Reviewed
+                          </span>
+                          <span>{item.lastReviewed}</span>
+                        </div>
                       ) : null}
                       {showActions ? (
-                        <td className="px-3 py-5 w-[64px] text-center">
+                        <div className="flex md:ml-auto">
                           <div
-                            className="relative inline-flex opacity-0 transition-opacity group-hover:opacity-100"
+                            className="relative inline-flex opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                             ref={openRowMenuId === item.id ? rowMenuRef : null}
                           >
                             <button
@@ -454,7 +437,13 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
                             </button>
                             {openRowMenuId === item.id ? (
                               <div className="absolute right-0 top-full z-10 mt-2 w-36 rounded-lg border border-base-300 bg-base-100 p-2 text-xs text-base-content/70 shadow-lg">
-                                <button className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-base-200">
+                                <button
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-base-200"
+                                  onClick={() => {
+                                    setOpenRowMenuId(null);
+                                    setEditTargetId(item.id);
+                                  }}
+                                >
                                   <Pencil className="size-3.5" />
                                   Ubah
                                 </button>
@@ -471,13 +460,21 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
                               </div>
                             ) : null}
                           </div>
-                        </td>
+                        </div>
                       ) : null}
-                    </tr>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            )}
+            {!limit ? (
+              <div
+                ref={loadMoreRef}
+                className="flex items-center justify-center py-6 text-xs text-base-content/50"
+              >
+                {hasMore ? "Scroll untuk memuat lebih banyak" : "Semua data sudah dimuat"}
+              </div>
+            ) : null}
           </div>
         )}
       </CardContent>
@@ -504,6 +501,12 @@ function DashboardCollectionCard(props: DashboardCollectionCardProps) {
         variant="overlay"
         confirmButtonClassName="bg-error text-white hover:bg-error/90"
         cancelButtonClassName="border-base-300 text-base-content/70 hover:bg-base-200"
+      />
+      <CollectionEditModal
+        isOpen={Boolean(editTargetId)}
+        recordId={editTargetId}
+        onClose={() => setEditTargetId(null)}
+        onSaved={() => collectionSync.refresh()}
       />
     </Card>
   );

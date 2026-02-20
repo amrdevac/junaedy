@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from "react";
 
 import useDashboardStore from "@/store/useDashboardStore";
-import { getAllHanziRecords } from "@/lib/indexeddb/hanziCollection";
+import { getAllHanziRecords, getAllQuizHistory } from "@/lib/indexeddb/hanziCollection";
 
 type ProficiencyMeta = {
   label: string;
@@ -35,6 +35,7 @@ function useHanziCollectionSync() {
   const refresh = useCallback(
     async function () {
       const records = await getAllHanziRecords();
+      const quizHistory = await getAllQuizHistory();
       const sorted = records.slice().sort(function (a, b) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
@@ -50,6 +51,7 @@ function useHanziCollectionSync() {
           proficiencyPercent: meta.percent,
           proficiencyTone: meta.tone,
           lastReviewed: formatDate(record.createdAt),
+          type: record.type,
         };
       });
 
@@ -66,6 +68,27 @@ function useHanziCollectionSync() {
       }).length;
       const cappedWeekly = Math.min(weeklyCount, 99);
       setStatCaption("total-vocab", `+${cappedWeekly} WEEK`);
+
+      if (quizHistory.length > 0) {
+        const totalCorrect = quizHistory.reduce(function (sum, item) {
+          return sum + item.correctCount;
+        }, 0);
+        const totalQuestions = quizHistory.reduce(function (sum, item) {
+          return sum + item.totalQuestions;
+        }, 0);
+        const overallAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+        const scoreOutOf100 = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+        setStatValue("accuracy", `${overallAccuracy}%`);
+        setStatCaption("accuracy", `${quizHistory.length} QUIZZES`);
+        setStatValue("quiz-score", `${scoreOutOf100}/100`);
+        setStatCaption("quiz-score", "AVG SCORE");
+      } else {
+        setStatValue("accuracy", "0%");
+        setStatCaption("accuracy", "NO QUIZ");
+        setStatValue("quiz-score", "0/100");
+        setStatCaption("quiz-score", "AVG SCORE");
+      }
     },
     [setCharacters, setStatValue, setStatCaption]
   );

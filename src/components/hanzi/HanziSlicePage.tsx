@@ -31,9 +31,22 @@ function HanziSlicePage() {
   const hanziChars = Array.from(hanziParam).filter(function (char) {
     return /[\u4e00-\u9fff]/.test(char);
   });
+  const sentenceHanzi = hanziChars.join("");
   const rowsState = useState<SliceRow[]>([]);
   const rows = rowsState[0];
   const setRows = rowsState[1];
+  const sentenceMeaningState = useState("");
+  const sentenceMeaning = sentenceMeaningState[0];
+  const setSentenceMeaning = sentenceMeaningState[1];
+  const sentenceAutoState = useState(true);
+  const sentenceAuto = sentenceAutoState[0];
+  const setSentenceAuto = sentenceAutoState[1];
+  const sentenceDuplicateState = useState(false);
+  const isSentenceDuplicate = sentenceDuplicateState[0];
+  const setIsSentenceDuplicate = sentenceDuplicateState[1];
+  const sentenceExistingPinyinState = useState("-");
+  const sentenceExistingPinyin = sentenceExistingPinyinState[0];
+  const setSentenceExistingPinyin = sentenceExistingPinyinState[1];
   const isSavingState = useState(false);
   const isSaving = isSavingState[0];
   const setIsSaving = isSavingState[1];
@@ -67,12 +80,52 @@ function HanziSlicePage() {
         });
         setRows(nextRows);
         setExistingMap(nextMap);
+        if (sentenceHanzi.length > 1) {
+          const existingSentence = nextMap.get(sentenceHanzi);
+          const duplicate = Boolean(existingSentence);
+          setIsSentenceDuplicate(duplicate);
+          setSentenceExistingPinyin(duplicate ? existingSentence?.pinyin || "-" : "-");
+          setSentenceMeaning(duplicate ? existingSentence?.meaning || "" : "");
+          setSentenceAuto(!duplicate);
+        } else {
+          setIsSentenceDuplicate(false);
+          setSentenceExistingPinyin("-");
+          setSentenceMeaning("");
+          setSentenceAuto(true);
+        }
       };
 
       loadRows();
     },
-    [hanziParam]
+    [hanziParam, sentenceHanzi]
   );
+
+  useEffect(() => {
+    if (sentenceHanzi.length <= 1) return;
+    if (isSentenceDuplicate) return;
+    if (sentenceMeaning.trim()) return;
+    if (existingMap.size === 0) return;
+
+    const mergedMeaning = hanziChars
+      .map((char) => existingMap.get(char)?.meaning?.trim() || "")
+      .filter(Boolean)
+      .join(" ");
+
+    if (mergedMeaning) {
+      setSentenceMeaning(mergedMeaning);
+    }
+  }, [sentenceHanzi, hanziChars, existingMap, isSentenceDuplicate, sentenceMeaning]);
+
+  useEffect(() => {
+    if (!sentenceAuto) return;
+    if (sentenceHanzi.length <= 1) return;
+    if (isSentenceDuplicate) return;
+    const mergedMeaning = rows
+      .map((row) => row.meaning.trim())
+      .filter(Boolean)
+      .join(" ");
+    setSentenceMeaning(mergedMeaning);
+  }, [rows, sentenceAuto, sentenceHanzi, isSentenceDuplicate]);
 
   const handleMerge = (index: number) => {
     setRows(function (prevRows) {
@@ -171,15 +224,28 @@ function HanziSlicePage() {
         return !row.isDuplicate;
       })
       .map(function (row, index) {
-      return {
-        id: createId(index),
-        hanzi: row.hanzi,
-        pinyin: toPinyin(row.hanzi),
-        meaning: row.meaning,
-        proficiency: row.proficiency === "mahir" ? "mahir" : row.proficiency === "belajar" ? "belajar" : "baru",
+        return {
+          id: createId(index),
+          hanzi: row.hanzi,
+          pinyin: toPinyin(row.hanzi),
+          meaning: row.meaning,
+          proficiency: row.proficiency === "mahir" ? "mahir" : row.proficiency === "belajar" ? "belajar" : "baru",
+          createdAt: timestamp,
+          type: "character",
+        };
+      });
+
+    if (sentenceHanzi.length > 1 && sentenceMeaning.trim() && !isSentenceDuplicate) {
+      records.push({
+        id: createId(records.length),
+        hanzi: sentenceHanzi,
+        pinyin: toPinyin(sentenceHanzi),
+        meaning: sentenceMeaning.trim(),
+        proficiency: "baru",
         createdAt: timestamp,
-      };
-    });
+        type: "sentence",
+      });
+    }
 
     if (records.length > 0) {
       await addHanziRecords(records);
@@ -200,6 +266,42 @@ function HanziSlicePage() {
             Lengkapi arti dan tingkat kemahiran agar koleksi Hanzi Anda tetap rapi.
           </p>
         </div>
+
+        {sentenceHanzi.length > 1 ? (
+          <Card className="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
+            <div className="flex items-center justify-between border-b border-base-200 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-base-content/40">
+              <span>Kalimat</span>
+              {isSentenceDuplicate ? (
+                <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning">
+                  Sudah ada
+                </span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-[300px_minmax(0,1fr)_180px] items-center gap-4 px-6 py-4">
+              <div className="flex flex-col items-center gap-2">
+                <span className="hanzi-font text-3xl font-semibold text-base-content">
+                  {sentenceHanzi}
+                </span>
+                <span className="text-[11px] font-medium text-base-content/50">
+                  {isSentenceDuplicate ? sentenceExistingPinyin : toPinyin(sentenceHanzi)}
+                </span>
+              </div>
+              <Input
+                className="h-10 rounded-lg border-base-200 bg-base-100 text-sm"
+                placeholder="Masukkan arti kalimat..."
+                value={sentenceMeaning}
+                onChange={(event) => {
+                  setSentenceMeaning(event.target.value);
+                  setSentenceAuto(false);
+                }}
+                disabled={isSentenceDuplicate}
+              />
+              <div className="flex items-center gap-2 text-xs text-base-content/60">
+                <span className="size-2 rounded-full bg-primary" />
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
           <div className="grid grid-cols-[120px_minmax(0,1fr)_180px] gap-4 border-b border-base-200 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-base-content/40">
