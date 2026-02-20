@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import HanziSlicePage from "@/components/hanzi/HanziSlicePage";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function HanziSlice() {
-  return <HanziSlicePage />;
+  return (
+    <Suspense fallback={null}>
+      <HanziSlicePage />
+    </Suspense>
+  );
 }

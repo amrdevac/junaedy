@@ -5,7 +5,11 @@ import { BookOpen, Info, Keyboard, Link2, Save, Scissors, Trash2 } from "lucide-
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import pinyin from "pinyin";
-import { addHanziRecords, getAllHanziRecords } from "@/lib/indexeddb/hanziCollection";
+import {
+  addHanziRecords,
+  getAllHanziRecords,
+  type HanziRecord,
+} from "@/lib/indexeddb/hanziCollection";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Input } from "@/ui/input";
@@ -19,7 +23,7 @@ type SliceRow = {
   parts: string[];
   meaning: string;
   meaningPlaceholder: string;
-  proficiency: string;
+  proficiency: HanziRecord["proficiency"];
   isDuplicate: boolean;
   existingPinyin: string;
 };
@@ -63,7 +67,7 @@ function HanziSlicePage() {
         const nextMap = new Map(existing.map((item) => [item.hanzi, item]));
         const existingSet = new Set(nextMap.keys());
 
-        const nextRows = hanziChars.map(function (char, index) {
+        const nextRows: SliceRow[] = hanziChars.map(function (char, index) {
           const existingItem = nextMap.get(char);
           const isDuplicate = existingSet.has(char);
 
@@ -219,17 +223,22 @@ function HanziSlicePage() {
     if (rows.length === 0) return;
     setIsSaving(true);
     const timestamp = new Date().toISOString();
-    const records = rows
+    const records: HanziRecord[] = rows
       .filter(function (row) {
         return !row.isDuplicate;
       })
-      .map(function (row, index) {
+      .map(function (row, index): HanziRecord {
         return {
           id: createId(index),
           hanzi: row.hanzi,
           pinyin: toPinyin(row.hanzi),
           meaning: row.meaning,
-          proficiency: row.proficiency === "mahir" ? "mahir" : row.proficiency === "belajar" ? "belajar" : "baru",
+          proficiency:
+            row.proficiency === "mahir"
+              ? "mahir"
+              : row.proficiency === "belajar"
+                ? "belajar"
+                : "baru",
           createdAt: timestamp,
           type: "character",
         };
